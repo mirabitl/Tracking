@@ -1,0 +1,1304 @@
+ #include "imadreader.hh"
+#include <time.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <sys/dir.h>  
+#include <sys/param.h>  
+#include <stdio.h>  
+#include <stdlib.h>  
+#include <unistd.h>  
+#include <string.h>
+#include <stdint.h>
+#include <fcntl.h>
+#include <iostream>
+#include <fstream>
+#include <sstream>
+using namespace zdaq;
+imadreader::imadreader() : _run(0),_started(false),_fdOut(-1),_totalSize(0),_event(0) {}
+void imadreader::init(uint32_t run)
+{
+  _run=run; 
+  _event=0;
+  _started=true;
+ 
+  nBCIDMAX=0;
+}
+void imadreader::loadParameters(Json::Value params)
+{
+  /*
+  if (params.isMember("directory"))
+    _directory=params["directory"].asString();
+   if (params.isMember("dummy"))
+     _dummy=(params["dummy"].asUInt()!=0);
+  */
+}
+void imadreader::end(uint32_t run)
+{
+  outfile.close();
+  f->Write();
+  f->Close();
+  _started=false;
+
+}
+
+void imadreader::processRunHeader(std::vector<uint32_t> header)
+{
+}
+void imadreader::processEvent(rbEvent* e)
+{
+
+  if (!_started) return;
+  //  std::ofstream outfile("testme");  
+  //printf("BR => %d %d %d \n",e->run(),e->event(),e->gtc());
+  //  printf("BR => %d \n",MAXDIF);
+   bool Draw=false;
+   int maxtime=56000;
+  int NEV=10000;
+nevent=e->event();
+ if(nevent<10) return;
+    if(nTrack>NEV) return;
+    printf("nevent %d nTrack=%d \n",nevent, nTrack);
+  //intialization
+
+  nBCIDMAX=0;
+  nFrameMAX=0;  
+  nBCIDMAX=0;
+  nFrameMAX=0;
+  
+
+
+
+  int NZ=8;
+  
+   float ZZ[NZ];
+		   ZZ[0]=274.5,ZZ[1]=252.5,ZZ[2]=231., ZZ[3]=209.,ZZ[4]=126.,ZZ[5]=104.,ZZ[6]=82., ZZ[7]=60.;
+
+
+   int MZ[NZ];
+                   int  ZL;
+                   MZ[7]=0;
+                   MZ[8]=1;
+                   MZ[5]=2;
+                   MZ[4]=3;
+                   MZ[3]=4;
+                   MZ[6]=5;
+                   MZ[2]=6;
+		   MZ[1]=7;
+
+		   TH1F HB[NZ];
+		   
+  TH1F  H("H","",maxtime+1,0,maxtime);
+
+  for(int l=0;l<NZ; l++)
+    {
+      HB[l].SetBins(maxtime+1,0,maxtime);
+    }
+    
+
+
+  
+  for (int id0=0;id0<MAXDIF;id0++)
+    {
+
+      
+    if (e->frameCount(id0))
+      {
+
+	if(e->frameCount(id0)>nFrameMAX) nFrameMAX=e->frameCount(id0);
+	//	printf("GRIC %x %d frames \n",id,e->frameCount(id));
+	for (int j0=0;j0<e->frameCount(id0);j0++)
+	  {             
+	    uint32_t idx0=e->iPtr(id0,j0);
+	   
+	   
+	   
+	   
+	   
+	    H.Fill(e->bcid(idx0));
+	   
+	    // fast
+
+	     for(int kT=0; kT<64;kT++)
+				     {
+				       if((e->pad0(idx0,kT)||e->pad1(idx0,kT)))
+                       {
+                           
+			 int ZZT=id0/16;		  
+			   
+			   HB[MZ[ZZT]].Fill(e->bcid(idx0));
+
+
+		       }
+
+				     }
+			     
+
+	     	    //fast
+	   
+	    if(e->bcid(idx0)>nBCIDMAX) nBCIDMAX=e->bcid(idx0);
+	  
+
+	  }
+
+      }
+
+    }
+
+  
+		   
+		   //imad new
+		   // int nTrack=0;
+                  
+                  
+                   float Unit=30./64;
+                   float TAN60=1.732;
+                   
+                   int NS=500;
+		   		   int NSM=100;
+		   
+                   int VA1[NZ][NS];
+                   int VA2[NZ][NS];
+                   int VA3[NZ][NS];
+                   int NTS1[NZ];
+                   int NTS2[NZ];
+                   int NTS3[NZ];
+
+
+		   int VA11[NZ][NS];
+                   int VA22[NZ][NS];
+                   int VA33[NZ][NS];
+
+
+
+		   int VA1F[NZ][NS];
+                   int VA2F[NZ][NS];
+                   int VA3F[NZ][NS];
+		   
+                   int NTS11[NZ];
+                   int NTS22[NZ];
+                   int NTS33[NZ];
+
+
+
+		   int NTS1F[NZ];
+                   int NTS2F[NZ];
+                   int NTS3F[NZ];
+
+		   
+                  
+                   
+                    int      NFIXED=8;
+                    int      ZFIXED=4;
+                    int      NSL=12;
+		    float p1=1.;
+		 	int    NTlim=1;
+			Int_t IBIN0 = -10; 
+		    bool Nstrip[NZ];
+		    int Nlim=2;
+                   bool D1[NZ];
+                   bool D2[NZ];
+                   bool D3[NZ];
+                   bool FIND[NZ];
+		   bool FINDY[NZ];
+		   bool FINDA[NZ];
+		   
+		   int Nhit[NZ];
+                   bool FINDtop ;            
+                   bool FINDbot;
+                   bool FINDboth;
+                   
+                   int nBCID1, nBCID2;
+		   Int_t IBINM=-5;
+		   Int_t IBINP=-5;		 
+
+		   int NB0=0, NB1p=0, NB1m=0;
+		   int NZ1=4;
+		   int NZ2=4;
+		  
+		   float xx[NS], yy[NS], zz[NS], ez[NS];
+		   float xxu[NZ1],yyu[NZ1],zzu[NZ1],ezu[NZ1];
+		   float xxd[NZ2],yyd[NZ2], zzd[NZ2],ezd[NZ2];
+		   float Sxu[NZ1], Syu[NZ1], Sxd[NZ2], Syd[NZ2];
+		   
+		   float xG=0., yG=0.;
+		   float xxu0,xxd0,yyu0,yyd0,xxuN,xxdN,yyuN,yydN;
+		   
+		   for (int BBC=1;BBC<nBCIDMAX;BBC++)
+		     {
+		       // maxima
+
+		      
+
+		       int Fixed=0;
+		       for(int ll=0; ll<NZ; ll++)
+   {
+     if(HB[ll].GetBinContent(BBC)>0)
+       {Fixed++;
+	 //      printf("Fixed =%d\n",Fixed);       		
+       }
+   }
+
+		       if(Fixed<ZFIXED) continue;
+
+
+
+	NB0= H.GetBinContent(BBC);
+			if(BBC<maxtime) Int_t NB1p= H.GetBinContent(BBC+1);
+			//		if(BBC>0)       Int_t NB1m= H.GetBinContent(BBC-1);
+				if(BBC>0)       Int_t NB1m= H.GetBinContent(BBC-1);
+				   if(NB0>NFIXED&&NB0>NB1p&&NB0>=NB1m&&NB0<NSM)
+				
+	   {
+
+
+
+
+	     
+
+	if(BBC>(IBINP+1)) 
+		{
+
+		  IBIN0 = BBC;
+ IBINP=IBIN0+NTlim;
+ IBINM=IBIN0;
+ if(IBIN0> NTlim) IBINM=IBIN0-NTlim;
+
+
+ 
+
+
+ 
+
+
+ 
+
+        
+                    //  Track[BC]=false;
+                 FINDtop=FINDbot=FINDboth=false;
+                 
+		       int      ncount=0;
+
+		    int Nhitt=0;
+		   int Nhitu=0;
+		   int Nhitd=0;
+
+                 for (int m=0; m<NZ;m++)
+                 {
+                     D1[m]=D2[m]=D3[m]=FIND[m]=FINDY[m]=FINDA[m]=false;
+                     NTS1[m]=NTS2[m]=NTS3[m]=Nhit[m]=0;
+		     
+		     NTS11[m]=NTS22[m]=NTS33[m]=0;
+		     NTS1F[m]=NTS2F[m]=NTS3F[m]=0;
+
+		      //sigma
+					      Sxu[m]=Syu[m]=0;
+					      Sxd[m]=Syd[m]=0;
+                     for ( int ms=0; ms<NS; ms++)
+                     {
+                         VA1[m][ms]=VA2[m][ms]=VA3[m][ms]=0;
+			 VA11[m][ms]=VA22[m][ms]=VA33[m][ms]=0;
+			  VA1F[m][ms]=VA2F[m][ms]=VA3F[m][ms]=0;
+			 
+
+                     }
+		 }
+		
+
+		 
+
+
+		 
+			   TH2F H1("H1","",70,-35,35,261,50,290);
+			   TH2F H2("H2","",70,-35,35,261,50,290);
+			  
+			   H1.SetMarkerStyle(20);
+			   H2.SetMarkerStyle(20);
+			   H1.SetMarkerSize(01.0);
+			   H2.SetMarkerSize(01.0);
+			   TH2F H1G("H1G","",70,-35,35,261,50,290);
+			   TH2F H2G("H2G","",70,-35,35,261,50,290);
+			  
+			   H1G.SetMarkerStyle(20);
+			   H2G.SetMarkerStyle(20);
+			   H1G.SetMarkerSize(01.0);
+			   H2G.SetMarkerSize(01.0);
+			   H1G.SetMarkerColor(3);
+			   H2G.SetMarkerColor(3);
+
+			   for( int BC = IBINM;BC<IBINP;BC++)
+			   // int  BC=IBIN0;
+{  
+
+
+  
+
+  
+		       //maxima
+
+
+
+
+
+
+		
+
+
+		 
+		 
+		       //gathering several BCID in the future
+		       for (int id1=0;id1<MAXDIF;id1++)
+			 {
+
+
+			 
+			   
+			   if (e->frameCount(id1))
+			     {
+			       for (int j=0;j<e->frameCount(id1);j++)
+				 {
+				   uint32_t idx1=e->iPtr(id1,j);
+				      
+				   nBCID1=e->bcid(idx1);
+				   // printf("nBCID1= %d \n",nBCID1);
+				   for(int k=0; k<64;k++)
+				     {
+				       if(BC==nBCID1&&(e->pad0(idx1,k)||e->pad1(idx1,k)))
+                       {
+                           
+                           int ZZ=id1/16;
+                           FINDY[MZ[ZZ]]=true;
+			   
+                           if((id1/16==ZZ)&&(id1%16==2||id1%16==4))
+			     {                          
+                               D1[MZ[ZZ]]=true;
+			       //   printf("plan= %d touché1? % d \n",MZ[ZZ], D1[MZ[ZZ]]);
+
+			    
+				  if((e->pad0(idx1,k)||e->pad1(idx1,k)))
+				      {
+			       if(id1%16==2)
+                               {
+                                   NTS1[MZ[ZZ]]++;
+				   NTS1F[MZ[ZZ]]= NTS1[MZ[ZZ]];
+				   
+                                   VA1[MZ[ZZ]][NTS1[MZ[ZZ]]]=k;
+				   VA1F[MZ[ZZ]][NTS1[MZ[ZZ]]]=VA1[MZ[ZZ]][NTS1[MZ[ZZ]]];
+				   
+				   // printf("numero= %d strip %d  \n",   NTS1[ZZ],  VA1[ZZ][NTS1[ZZ]]   );
+
+			       }
+                               
+                               if(id1%16==4)
+                               {
+                                   NTS1[MZ[ZZ]]++;
+				   NTS1F[MZ[ZZ]]= NTS1[MZ[ZZ]];
+				   
+                                   VA1[MZ[ZZ]][NTS1[MZ[ZZ]]]=k+64;
+				   VA1F[MZ[ZZ]][NTS1[MZ[ZZ]]]=VA1[MZ[ZZ]][NTS1[MZ[ZZ]]];
+
+				   //printf("numero= %d strip %d  \n",   NTS1[ZZ],  VA1[ZZ][NTS1[ZZ]]   );
+                               }
+
+				      }
+			         if((e->pad0(idx1,k)==0))
+
+				      {
+
+					     if(id1%16==2)
+                               {
+                                   NTS11[MZ[ZZ]]++;
+                                   VA11[MZ[ZZ]][NTS11[MZ[ZZ]]]=k;
+				   // printf("numero= %d strip %d  \n",   NTS1[ZZ],  VA1[ZZ][NTS1[ZZ]]   );
+
+			       }
+                               
+                               if(id1%16==4)
+                               {
+                                   NTS11[MZ[ZZ]]++;
+                                   VA11[MZ[ZZ]][NTS11[MZ[ZZ]]]=k+64;
+
+					    
+			       }
+				      }	    
+		       
+				 //   if(NTS1[MZ[ZZ]]> NSL )  printf("too much 1 in plan %d  \n", MZ[ZZ]  );
+			     }
+				     
+			       
+
+				 
+				 
+                           
+                           if((id1/16==ZZ)&&(id1%16==3||id1%16==5))
+                           {
+			   
+                               D2[MZ[ZZ]]=true;
+
+			      
+				  if((e->pad0(idx1,k)||e->pad1(idx1,k)))
+			       {
+			       //   printf("plan= %d touché2? % d \n",MZ[ZZ], D2[MZ[ZZ]]);
+                               if(id1%16==3)
+                               {
+                                   NTS2[MZ[ZZ]]++;
+				   NTS2F[MZ[ZZ]]= NTS2[MZ[ZZ]];
+				   
+                                   VA2[MZ[ZZ]][NTS2[MZ[ZZ]]]=k;
+				   VA2F[MZ[ZZ]][NTS2[MZ[ZZ]]]=VA2[MZ[ZZ]][NTS2[MZ[ZZ]]];
+				   
+				   // printf("numero= %d strip %d  \n",   NTS2[ZZ],  VA2[ZZ][NTS2[ZZ]]   );
+                               }
+
+			      
+                               if(id1%16==5)
+                               {
+                                   NTS2[MZ[ZZ]]++;
+				    NTS2F[MZ[ZZ]]= NTS2[MZ[ZZ]];
+				   
+				   
+                                   VA2[MZ[ZZ]][NTS2[MZ[ZZ]]]=k+64;
+				    VA2F[MZ[ZZ]][NTS2[MZ[ZZ]]]=VA2[MZ[ZZ]][NTS2[MZ[ZZ]]];
+
+				   // printf("numero= %d strip %d  \n",   NTS2[ZZ],  VA2[ZZ][NTS2[ZZ]]   );			   
+                               }
+
+			       //  if(NTS2[MZ[ZZ]]> NSL )  printf("too much 2 in plan %d  \n", MZ[ZZ]  );
+
+
+
+			       }
+			        if((e->pad0(idx1,k)==0))
+				  {
+
+				      if(id1%16==3)
+                               {
+                                   NTS22[MZ[ZZ]]++;
+                                   VA22[MZ[ZZ]][NTS22[MZ[ZZ]]]=k;
+				   // printf("numero= %d strip %d  \n",   NTS2[ZZ],  VA2[ZZ][NTS2[ZZ]]   );
+                               }
+
+			      
+                               if(id1%16==5)
+                               {
+                                   NTS22[MZ[ZZ]]++;
+                                   VA22[MZ[ZZ]][NTS22[MZ[ZZ]]]=k+64;
+
+
+				    
+			       }
+
+
+				  }
+			   }
+
+			   
+			       
+			   
+                           if((id1/16==ZZ)&&(id1%16==6||id1%16==7))
+                           {
+                               D3[MZ[ZZ]]=true;
+			       //  printf("plan= %d touché3? % d \n",MZ[ZZ], D3[MZ[ZZ]]);
+                
+			       if((e->pad0(idx1,k)||e->pad1(idx1,k)))
+			       { 
+                               if(id1%16==6)
+                               {
+                                   NTS3[MZ[ZZ]]++;
+				   NTS3F[MZ[ZZ]]= NTS3[MZ[ZZ]];
+				    
+                                   VA3[MZ[ZZ]][NTS3[MZ[ZZ]]]=k;
+				   VA3F[MZ[ZZ]][NTS3[MZ[ZZ]]]= VA3[MZ[ZZ]][NTS3[MZ[ZZ]]];
+
+				   //	    printf("numero= %d strip %d  \n",   NTS3F[ZZ],  VA3F[ZZ][NTS3[MZ[ZZ]]]   );
+                               }
+                               
+                               if(id1%16==7)
+                               {
+                                   NTS3[MZ[ZZ]]++;
+				   NTS3F[MZ[ZZ]]= NTS3[MZ[ZZ]];
+				   
+                                   VA3[MZ[ZZ]][NTS3[MZ[ZZ]]]=k+64;
+				  VA3F[MZ[ZZ]][NTS3[MZ[ZZ]]]= VA3[MZ[ZZ]][NTS3[MZ[ZZ]]];
+                               }
+
+			       }
+
+			       if((e->pad0(idx1,k)==0))
+				  {
+
+				     if(id1%16==6)
+                               {
+                                   NTS33[MZ[ZZ]]++;
+                                   VA33[MZ[ZZ]][NTS33[MZ[ZZ]]]=k;
+
+				   // printf("numero= %d strip %d  \n",   NTS3[ZZ],  VA3[ZZ][NTS3[ZZ]]   );
+                               }
+                               
+                               if(id1%16==7)
+                               {
+                                   NTS33[MZ[ZZ]]++;
+                                   VA33[MZ[ZZ]][NTS33[MZ[ZZ]]]=k+64;
+				 
+                               }
+
+				   }  
+				   
+			       
+			       //       if(NTS3[MZ[ZZ]]> NSL )  printf("too much 3  in plan %d  \n", MZ[ZZ] );
+
+				 
+				 
+				 
+			   }
+			      
+		       }//nBCID1=BC
+                 
+
+
+
+
+				     }
+				 }
+			     }
+			 }
+
+
+
+		       
+ }
+
+		
+
+ 
+
+				       
+			  
+
+
+		       
+
+                 
+                 for (int mm=0; mm<NZ;mm++)
+                 {
+                     if ((D1[mm]&&D2[mm])|| (D1[mm]&&D3[mm])|| (D2[mm]&&D3[mm]))
+		       {
+		       FIND[mm]=true;
+
+		       //   printf("nBCID1 %d  plan= %d FIND=  %d  \n",nBCID1, mm,  FIND[mm]);
+		       }
+		   
+                 }
+		              		 
+               
+		 nLayer = FIND[0]+FIND[1]+FIND[2]+FIND[3]+FIND[4]+FIND[5]+FIND[6]+FIND[7];
+
+		 //if(nLayer>3)  printf("nLayer =  %d \n", nLayer);
+		 // if(nLayer>3) FINDboth=true;
+		 
+		 if(FIND[0]+FIND[1]+FIND[2]+FIND[3]+FIND[4]+FIND[5]+FIND[6]+FIND[7]>ZFIXED) FINDboth=true;
+			 
+		 
+	       
+		 int TP= FINDY[0]+FINDY[1]+FINDY[2]+FINDY[3]+FINDY[4]+FINDY[5]+FINDY[6]+FINDY[7];
+		 //	 if(FINDboth&&TP>ZFIXED) printf(" number of fired planes with at least one direction %d \n", TP);;
+
+		 
+
+
+  
+      
+
+
+
+		 
+
+		 
+		 //	  if(FINDboth) printf("--------> I find a track  nTrack= %d \n ", nTrack+1);
+		 //	  if(FINDboth) printf("--------> I find a track  Chambers= %d \n ", FIND[0]+FIND[1]+FIND[2]+FIND[3]+FIND[4]+FIND[5]+FIND[6]+FIND[7]);
+		 //imad 	 if(FINDboth) printf("-------> I find a track  Top= %d  Bot= %d \n ", FINDtop, FINDbot);
+		 //imad    if(FINDtop) printf("oh yes top, nevent= %d  nb of plans %d \n", nevent,int(FIND[0]+FIND[1]+FIND[2]+FIND[3]));
+		 //imad	 if(FINDtop)    printf("FINDs %d %d %d %d\n", FIND[0],FIND[1],FIND[2],FIND[3]);
+		
+
+		 //imad		 if(FINDbot) printf("oh yes  bot,nevent= %d  nb of plans %d  \n",nevent, int(FIND[4]+FIND[5]+FIND[6]+FIND[7]) );
+		 //imad	 if(FINDbot)    printf("FINDs %d %d %d %d \n", FIND[4],FIND[5],FIND[6],FIND[7]);   
+		 
+                 //gathering
+
+  
+    
+		       if(FINDboth)
+			 {
+
+
+			  
+
+
+               
+			   
+			   nTrack++;
+
+                 for (int mzm=0; mzm<NZ;mzm++)
+                 {
+
+		   for(int ns=1;ns< NS;  ns++)
+
+		     {		      
+			 			   
+		       if(NTS11[mzm])
+			 {
+			   NTS1F[mzm]=NTS11[mzm];
+			   VA1F[mzm][ns]=VA11[mzm][ns];
+			 			   
+			 }
+		       
+		        if(NTS22[mzm])
+			 {
+			   NTS2F[mzm]=NTS22[mzm];
+			   VA2F[mzm][ns]=VA22[mzm][ns];
+			 			   
+			 }
+
+			 if(NTS33[mzm])
+			 {
+			   NTS3F[mzm]=NTS33[mzm];
+			   VA3F[mzm][ns]=VA33[mzm][ns];
+			 			   
+			 }
+
+		     
+
+		     }
+
+		 
+		 
+
+
+		   //starting of a plane
+                     //directoions 1&2
+		 
+
+		   xG=yG=0.;
+		   //  if(NTS1[mzm]>0&&NTS2[mzm]>0)
+		   if(NTS1F[mzm]>0&&NTS2F[mzm]>0&&NTS1F[mzm]<NSL&&NTS2F[mzm]<NSL)
+                     {
+                         for(int m1=1;m1<NTS1F[mzm]+1;m1++)
+                         {
+                             
+                             // printf("mmmmmmmmmmmm= %d\n",m1);
+                             
+                             for(int m2=1;m2<NTS2F[mzm]+1;m2++)
+                             {
+                                 
+                                 yy[Nhit[mzm]]=VA1F[mzm][m1]*Unit-30;
+                                 xx[Nhit[mzm]]=((VA1F[mzm][m1]+2*VA2F[mzm][m2])*Unit-90)/TAN60;
+                                 zz[Nhit[mzm]]=ZZ[mzm];
+				 ez[Nhit[mzm]]=1.;
+				 
+				 xt=xx[Nhit[mzm]];
+				 yt=yy[Nhit[mzm]];
+				 zt=zz[Nhit[mzm]];
+				Nhit[mzm]++;
+					if(Nhit[mzm]>NS-10) continue;
+				 xG=xG+xt;
+				 yG=yG+yt;
+				 Nhitt++;
+				 	if(Nhitt>NS-10) continue;
+				 
+				 
+				 //         ntup.Fill(nevent,BBC,nBCIDMAX,xt,yt,zt,nTrack,nLayer);
+				 //	 Tricot->Fill();
+			         H1.Fill(xt,zt);
+				 H2.Fill(yt,zt);
+				 
+				 //	 printf (" Plane= %d  xx=%f yy = %f zz= %f \n",  mzm, xx, yy,  zz);
+				 //	 outfile <<   nevent <<" "<< nTrack << " " << nLayer << " " <<   xt << " "<< yt<< " "<< zt << std::endl;
+                                 
+                                 
+                             }
+                             
+                         }
+                     }
+                    
+                     
+                     
+                     //directoions 1&3
+		   //           if(NTS1[mzm]>0&&NTS3[mzm]>0)
+		                        if(NTS1F[mzm]>0&&NTS3F[mzm]>0&&NTS1F[mzm]<NSL&&NTS3F[mzm]<NSL)
+		  
+                     {
+                         for(int m1=1;m1<NTS1F[mzm]+1;m1++)
+                         {
+                             
+                             for(int m3=1;m3<NTS3F[mzm]+1;m3++)
+                             {
+                                 
+                                 yy[Nhit[mzm]]=(VA1F[mzm][m1])*Unit-30;
+                                 xx[Nhit[mzm]]=-((VA1F[mzm][m1]+2*VA3F[mzm][m3])*Unit-90)/TAN60;
+                                 zz[Nhit[mzm]]=ZZ[mzm];
+				 ez[Nhit[mzm]]=1.;
+				 
+				 xt=xx[Nhit[mzm]];
+				 yt=yy[Nhit[mzm]];
+				 zt=zz[Nhit[mzm]];
+				  Nhit[mzm]++;
+				  if(Nhit[mzm]>NS-10) continue;
+				 xG=xG+xt;
+				 yG=yG+yt;
+                                 Nhitt++;
+				 	if(Nhitt>NS-10) continue;
+
+				 
+				 //	 ntup.Fill(nevent,BBC,nBCIDMAX,xt,yt,zt,nTrack,nLayer);
+				 //	 Tricot->Fill();
+				 H1.Fill(xt,zt);
+				 H2.Fill(yt,zt);				 	
+				 // printf (" Plane= %d  xx=%f yy = %f zz= %f \n",  mzm, xx, yy,  zz);
+					     
+				 //	 outfile <<   nevent <<" "<< nTrack << " " << nLayer << " " <<   xt << " "<< yt<< " "<< zt << std::endl;
+				     
+				
+                                           
+                            }
+                                           
+			 }
+                                           
+		     }
+
+
+		 
+		                      
+                     
+                                           
+                                             //directoions 2&3
+					//  if(NTS2[mzm]>0&&NTS3[mzm]>0)     
+				     if(NTS2F[mzm]>0&&NTS3F[mzm]>0&&NTS2F[mzm]<NSL&&NTS3F[mzm]<NSL)
+				
+                                           {
+                                               for(int m2=1;m2<NTS2F[mzm]+1;m2++)
+                                               {
+                                                   
+                                                   for(int m3=1;m3<NTS3F[mzm]+1;m3++)
+                                                   {
+                                                       
+                                                       
+                                                      
+                                                       
+                                                       xx[Nhit[mzm]]=((-VA3F[mzm][m3]+VA2F[mzm][m2])*Unit)/TAN60;
+                                                       yy[Nhit[mzm]]=TAN60*xx[Nhit[mzm]]-VA2F[mzm][m2]*2*Unit+60;
+                                                       zz[Nhit[mzm]]=ZZ[mzm];
+						       	 ez[Nhit[mzm]]=1.;
+							
+                                                       xt=xx[Nhit[mzm]];
+                                                       yt=yy[Nhit[mzm]];
+                                                       zt=zz[Nhit[mzm]];
+						        Nhit[mzm]++;
+							if(Nhit[mzm]>NS-10) continue;
+											 
+				
+							Nhitt++;
+							if(Nhitt>NS-10) continue;
+				 xG=xG+xt;
+				 yG=yG+yt;
+				 // ntup.Fill(nevent,BBC,nBCIDMAX,xt,yt,zt,nTrack, nLayer);
+				 // Tricot->Fill();
+				  H1.Fill(xt,zt);
+				  H2.Fill(yt,zt);
+				  // outfile <<   nevent <<" "<< nTrack << " " << nLayer << " " <<   xt << " "<< yt<< " "<< zt << std::endl;
+				 
+				
+				  //	       	 printf (" Plane= %d  xx=%f yy = %f zz= %f \n",  mzm, xx, yy,  zz);
+							 // outfile << " Plane= %d  xx=%f yy = %f zz= %f \n",  mzm, xx, yy,  zz;
+                                                       
+                                                   }
+                                                   
+                                               }
+					   }
+
+                     
+
+
+					      
+					  if(Nhit[mzm]>0)
+					    {
+					      xG=xG/Nhit[mzm];
+					      yG=yG/Nhit[mzm];
+					      if(mzm<4)
+						{
+						  
+						  xxu[Nhitu]=xG;
+						  yyu[Nhitu]=yG;
+						  zzu[Nhitu]=ZZ[mzm]; 
+					
+						}
+					      if(mzm>=4)
+						{
+						  
+						  xxd[Nhitd]=xG;
+						  yyd[Nhitd]=yG;
+					          zzd[Nhitd]=ZZ[mzm]; 
+
+						}
+
+					      
+					     
+					      if(Nhit[mzm]>0)FINDA[mzm]=true;
+					    
+					      
+					      
+					   
+					    
+
+
+					  
+
+					  for(int jk=0; jk<Nhit[mzm];jk++)
+					    {
+
+					      
+					      if(mzm<4)
+						{
+						  Sxu[Nhitu]=(xG-xx[jk])*(xG-xx[jk])+Sxu[Nhitu];
+						  Syu[Nhitu]=(yG-yy[jk])*(yG-yy[jk])+Syu[Nhitu];
+						  //	  printf("cluster coordinates----------------> Nhitu= %d  sigxu= %f sigyu= %f xx= %f yy= %f Plan= %d  Nhit=%d  \n",Nhitu, Sxu[Nhitu],Syu[Nhitu], xx[jk] , yy[jk], mzm, Nhit[mzm]); 
+						  
+						}
+					      if(mzm>=4)
+						{
+						  Sxd[Nhitd]=(xG-xx[jk])*(xG-xx[jk])+Sxd[Nhitd];
+						  Syd[Nhitd]=(yG-yy[jk])*(yG-yy[jk])+Syd[Nhitd];
+						  //  printf("cluster coordinates---------------->  Nhitd=%d  sigxd= %f sigyd=%f  xx= %f yy= %f Plan= %d Nhit %d \n",Nhitd, Sxd[Nhitd], Syd[Nhitd],xx[jk] , yy[jk], mzm, Nhit[mzm]); 
+						}
+					      
+					      
+					      
+					    }
+
+					  if(mzm<4)
+					    {
+
+					      if(Nhit[mzm]){
+						Sxu[Nhitu]=std::sqrt(Sxu[Nhitu]/Nhit[mzm]);
+						Syu[Nhitu]=std::sqrt(Syu[Nhitu]/Nhit[mzm]);
+		
+						
+					      }
+					        if(Sxu[Nhitu]==0) Sxu[Nhitu]=.3;
+						if(Syu[Nhitu]==0) Syu[Nhitu]=.3;
+					      ezu[Nhitu]=1.;
+
+					      if(Sxu[Nhitu]<3&&Syu[Nhitu]<3)
+						{
+						    H1G.Fill(xG,ZZ[mzm]);
+						    H2G.Fill(yG,ZZ[mzm]);
+					     
+						Nhitu++;
+						}
+					    }
+					  if(mzm>=4)
+					    {
+					      if(Nhit[mzm])
+						{
+						  Sxd[Nhitd]=std::sqrt(Sxd[Nhitd]/Nhit[mzm]);
+						  Syd[Nhitd]=std::sqrt(Syd[Nhitd]/Nhit[mzm]);
+					
+						}
+					      if(Sxd[Nhitd]==0) Sxd[Nhitd]=.3;
+					      if(Syd[Nhitd]==0) Syd[Nhitd]=.3;
+					      ezd[Nhitd]=1.;
+					  	 if(Sxd[Nhitd]<3&&Syd[Nhitd]<3)
+						   {
+						      H1G.Fill(xG,ZZ[mzm]);
+						      H2G.Fill(yG,ZZ[mzm]);
+						     Nhitd++;
+						   }
+					    }
+
+					  //	     printf("cluster coordinates----------------> Nhit= %d  xG= %f yG= %f  zG=%f Plan= %d  \n",Nhit[mzm], xG,yG, ZZ[mzm], mzm);
+
+					  // printf("cluster coordinates----------------> Nhitu= %d  sigxu= %f sigyu= %f  Nhitd=%d  sigxd= %f sigyd=%f Plan= %d  \n",Nhitu, Sxu[Nhitu],Syu[Nhitu], Nhitd, Sxd[Nhitd], Syd[Nhitd], mzm); 
+					    }	  
+					  //
+                     
+     
+			  //end of a plane
+                 }
+
+
+		 //	 printf("Nhitu %d= , Nhitd=%d\n", Nhitu, Nhitd);   
+
+
+
+			 
+
+			
+
+		 
+
+	 
+
+		
+		 //// segment fit
+
+			 // if(int(FINDA[0]+FINDA[1]+FINDA[2]+FINDA[3])>2) FINDtop=true;
+			 //if(int(FINDA[4]+FINDA[5]+FINDA[6]+FINDA[7])>1) FINDbot=true;
+			 if(Nhitu>1)  FINDtop=true;
+			  if(Nhitd>1)  FINDbot=true;
+
+
+			  if(FINDtop&&FINDbot&&Draw)
+			    {
+			      
+			      c1->Clear();
+			c1->Divide(1,2);
+		
+
+		     c1->cd(1);
+			      H1.Draw();
+		     
+			      H1G.Draw("same");
+
+	 c1->Update();
+			  
+			c1->cd(2);
+		       
+	       H2.Draw();
+      
+       	       H2G.Draw("same");
+	      		      	 c1->Update();
+
+			    }
+
+			  
+		 //		 Nhitu= (FINDA[0]+FINDA[1]+FINDA[2]+FINDA[3]);
+		 // Nhitd= (FINDA[4]+FINDA[5]+FINDA[6]+FINDA[7]);
+		 
+		 float pxz0u, pxz1u, pxz0d, pxz1d,  pyz0u, pyz1u, pyz0d, pyz1d, kxzu, kyzu, kxzd, kyzd; 
+	if(FINDtop)	 
+                   {
+
+
+
+		     
+		    
+
+		     //  for( int nt=0; nt<Nhitu;nt++)
+		     //{
+			 // printf("xx=%f, zz=%f  sigma=%f ez=%f \n",xxu[nt],zzu[nt], Sxu[nt], ezu[nt]);
+			 //	 printf("yy=%f, zz=%f  sigma=%f ez=%f \n",yyu[nt],zzu[nt], Syu[nt], ezu[nt]);
+
+		     //}
+		     
+		     TGraphErrors* grxzu = new TGraphErrors(Nhitu,xxu,zzu,Sxu,ezu);
+		
+	grxzu->SetLineColor(2);
+   grxzu->SetLineWidth(4);
+   grxzu->SetMarkerColor(4);
+  grxzu->SetMarkerStyle(21);
+   grxzu->GetXaxis()->SetTitle("X title");
+   grxzu->GetYaxis()->SetTitle("Z title");
+
+               xxu0=xxu[0];
+	       xxuN=xxu[Nhitu-1];
+	       if(xxu0>xxuN)
+		 {
+		   xxu0=xxu[Nhitu-1];
+		   xxuN=xxu[0];
+		 }
+	       
+	    
+   TF1 *xzu = new TF1("xzu","[0]+[1]*x",xxu0,xxuN);
+              xzu->SetParameter(0,xxu0);
+	      if((xxu[Nhitu-1]-xxu[0])!=0) p1=(zzu[Nhitu-1]-zzu[0])/(xxu[Nhitu-1]-xxu[0]);
+	      xzu->SetParameter(1,p1 );
+            
+            grxzu->Fit("xzu","Q");
+	   
+	     pxz0u = xzu->GetParameter(0);           
+	     pxz1u = xzu->GetParameter(1);
+	    kxzu =  xzu->GetChisquare();
+     
+     
+
+          
+
+
+               
+      TGraphErrors* gryzu = new TGraphErrors(Nhitu,yyu,zzu,Syu,ezu);
+		
+	gryzu->SetLineColor(2);
+   gryzu->SetLineWidth(4);
+   gryzu->SetMarkerColor(4);
+   gryzu->SetMarkerStyle(21);
+   gryzu->GetXaxis()->SetTitle("X title");
+   gryzu->GetYaxis()->SetTitle("Z title");
+
+            
+
+
+	       yyu0=yyu[0];
+	       yyuN=yyu[Nhitu-1];
+	       if(yyu0>yyuN)
+		 {
+		   yyu0=yyu[Nhitu-1];
+		   yyuN=yyu[0];
+		 }
+
+	       
+  TF1 *yzu = new TF1("yzu","[0]+[1]*x",yyu0,yyuN);
+   if((yyu[Nhitu-1]-yyu[0])!=0) p1=(zzu[Nhitu-1]-zzu[0])/(yyu[Nhitu-1]-yyu[0]);
+           yzu->SetParameter(0,yyu0 );
+	      yzu->SetParameter(1,p1 );
+            gryzu->Fit("yzu","Q");
+	   
+	    pyz0u = yzu->GetParameter(0);           
+	    pyz1u =yzu->GetParameter(1);
+	    kyzu  = yzu->GetChisquare();
+
+
+		
+			
+	    //   printf(" kxzu= %f, kyzu=%f\n", kxzu, kyzu); 			
+        
+	    if(Draw)
+	      {
+	    c1->cd(1);
+
+	   if(kxzu<100) xzu->Draw("same");
+
+	   	 c1->Update();
+	    c1->cd(2);
+
+	    
+	    if(kyzu<100) yzu->Draw("same");
+	    
+	    c1->Update();
+		   }
+
+        px0=pxz0u;
+	py0=pyz0u;
+	px1=pxz1u;
+	py1=pyz1u;
+   	kxz=kxzu;
+	kyz=kyzu;
+	nut=Nhitu;
+
+	
+	if(Nhitd<1) Abs.Fill(nut,px0,px1,kxz,py0,py1,kyz);
+
+    }//top
+
+
+	if(FINDbot)	 
+                   {
+
+
+		       for( int nt=0; nt<Nhitd;nt++)
+		       {
+			 //printf("xx=%f, zz=%f  sigma=%f \n",xxd[nt],zzd[nt], Sxd[nt]);
+			 //printf("yy=%f, zz=%f  sigma=%f \n",yyd[nt],zzd[nt], Syd[nt]);
+
+		       }
+		     TGraphErrors* grxzd = new TGraphErrors(Nhitd,xxd,zzd,Sxd,ezd);
+		
+	grxzd->SetLineColor(2);
+   grxzd->SetLineWidth(4);
+   grxzd->SetMarkerColor(2);
+  grxzd->SetMarkerStyle(21);
+   grxzd->GetXaxis()->SetTitle("X title");
+   grxzd->GetYaxis()->SetTitle("Z title");
+   
+
+	       xxd0=xxd[0];
+	       xxdN=xxd[Nhitd-1];
+	       if(xxd0>xxdN)
+		 {
+		   xxd0=xxd[Nhitd-1];
+		   xxdN=xxd[0];
+		 }
+  TF1 *xzd = new TF1("xzd","[0]+[1]*x",xxd0,xxdN);
+   if((xxd[Nhitd-1]-xxd[0])!=0) p1=(zzd[Nhitd-1]-zzd[0])/(xxd[Nhitd-1]-xxd[0]);
+            xzd->SetParameter(0,xxd0 );
+            xzd->SetParameter(1,p1 );
+            grxzd->Fit("xzd","Q");	    
+	    pxz0d = xzd->GetParameter(0);           
+	    pxz1d = xzd->GetParameter(1);
+	    kxzd =  xzd->GetChisquare();
+            
+
+
+
+               
+	    TGraphErrors* gryzd = new TGraphErrors(Nhitd,yyd,zzd,Syd,ezd);
+		
+	gryzd->SetLineColor(2);
+   gryzd->SetLineWidth(4);
+   gryzd->SetMarkerColor(2);
+   gryzd->SetMarkerStyle(21);
+   gryzd->GetXaxis()->SetTitle("X title");
+   gryzd->GetYaxis()->SetTitle("Z title");
+
+   
+
+	       yyd0=yyd[0];
+	       yydN=yyd[Nhitd-1];
+	       if(yyd0>yydN)
+		 {
+		   yyd0=yyd[Nhitd-1];
+		   yydN=yyd[0];
+		 }
+	     
+ TF1 *yzd = new TF1("yzd","[0]+[1]*x",yyd0,yydN);
+             if((yyd[Nhitd-1]-yyd[0])!=0) p1=(zzd[Nhitd-1]-zzd[0])/(yyd[Nhitd-1]-yyd[0]);
+	     yzd->SetParameter(0,yyd0 );
+	     yzd->SetParameter(1,p1 );
+            gryzd->Fit("yzd","Q");
+	    pyz0d = yzd->GetParameter(0);           
+	    pyz1d = yzd->GetParameter(1);
+	    kyzd  = yzd->GetChisquare();
+
+	    // printf(" kxzd= %f, kyzd=%f\n", kxzd, kyzd); 			
+	
+	    if(Draw)
+	      {
+		   c1->cd(1);	     
+	     
+		     if(kxzd<100) xzd->Draw("same");
+
+		      c1->Update();
+
+	             c1->cd(2);
+	    
+	              if(kyzd<100) yzd->Draw("same");
+	 c1->Update();	       
+          
+		      
+	      }
+		   }//bot
+
+
+
+ //c1->Modified(); 
+	
+	 float Cos2D;
+
+  float ppxz1u,ppxz0u,ppxz1d,ppxz0d,ppyz1u,ppyz0u,ppyz1d,ppyz0d;	
+	float A1,B1,C1,A2,B2,C2; 
+	float  S0,T0,x0,y0,z0; 
+	if(FINDtop&&FINDbot&&kxzu<100&&kyzu<100&&kxzd<100&&kyzd<100)
+
+{
+
+
+  ppxz1u=1./pxz1u;
+  ppxz1d=1./pxz1d;
+  ppyz1u=1./pyz1u;
+  ppyz1d=1./pyz1d;
+  
+  ppxz0u=- pxz0u/pxz1u;
+  ppxz0d=- pxz0d/pxz1d;
+  ppyz0u=- pyz0u/pyz1u;
+  ppyz0d=- pyz0d/pyz1d;
+  
+	Cos2D = (ppxz1u*ppxz1d+ppyz1u*ppyz1d+1)/(sqrt(ppxz1u*ppxz1u+ppyz1u*ppyz1u+1)*sqrt(ppxz1d*ppxz1d+ppyz1d*ppyz1d+1));	
+		
+		
+	
+	A1= (ppxz0u-ppxz0d)*ppxz1u+(ppyz0u-ppyz0d)*ppyz1u;
+	A2= (ppxz0u-ppxz0d)*ppxz1d+(ppyz0u-ppyz0d)*ppyz1d;
+
+  B1= ppxz1u*ppxz1u+ppyz1u*ppyz1u+1;
+  B2= ppxz1u*ppxz1d+ppyz1u*ppyz1d+1;
+
+  C1= -(ppxz1d*ppxz1u+ppyz1d*ppyz1u+1);
+  C2= -(ppxz1d*ppxz1d+ppyz1d*ppyz1d+1);
+
+	S0=T0=-100;
+  x0=y0=z0=-100;
+	if(fabs(C1*B2-C2*B1)>.0000001) 
+		{
+			S0= (B1*A2-B2*A1)/(C1*B2-C2*B1);
+
+			T0= (C1*A2-C2*A1)/(-C1*B2+C2*B1);
+
+			x0=(ppxz0u+ppxz1u*T0  +   ppxz0d+ppxz1d*S0)/2.0;
+			y0=(ppyz0u+ppyz1u*T0  +   ppyz0d+ppyz1d*S0)/2.0;
+			z0=(T0+S0)/2.0;
+
+			float dist=1000;
+
+			dist= ((ppxz0u+ppxz1u*T0)-(ppxz0d+ppxz1d*S0))* ((ppxz0u+ppxz1u*T0)-(ppxz0d+ppxz1d*S0)) +((ppyz0u+ppyz1u*T0)-(ppyz0d+ppyz1d*S0))*((ppyz0u+ppyz1u*T0)-(ppyz0d+ppyz1d*S0))+(T0-S0)*(T0-S0);
+			dist=std::sqrt(dist);
+			
+			if(Draw) 	printf("Cos= %f,  DCA=%f \n", Cos2D, dist);
+
+				
+
+				xc=x0;
+				yc=y0;
+				zc=z0;
+				costh=Cos2D;
+				nu=Nhitu;
+				nd=Nhitd;
+				k2ux=kxzu;
+				k2dx=kxzd;
+				k2uy=kyzu;
+				k2dy=kyzd;
+				distdca=dist;
+				Smiths.Fill(xc,yc,zc,costh,k2ux,k2uy,k2dx,k2dy,nu,nd,distdca);
+				
+			      				if(Cos2D<.999&&z0>130&&z0<205&&dist<100&&nu>2&&nd>2&&Draw)	printf("Cos= %f, x0= %f, y0= %f, zO= %f, DCA=%f \n", Cos2D,x0,y0,z0,dist);
+			
+					
+
+			 }
+ }
+
+
+		 /// segment fit
+
+		
+                 
+		 
+
+
+ 		 
+
+ 
+
+
+
+
+	 
+
+			 
+
+
+  // imad new
+			 }
+
+}
+			
+	   
+		     	   
+		     }
+}
+}
+  
+extern "C" 
+{
+    // loadDHCALAnalyzer function creates new LowPassDHCALAnalyzer object and returns it.  
+  rbProcessor* loadProcessor(void)
+    {
+      return (new imadreader);
+    }
+    // The deleteDHCALAnalyzer func
+
+}
+
+
+
