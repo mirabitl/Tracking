@@ -66,6 +66,22 @@ void  tdcrb::registerProcessor(std::string name)
   _processors.push_back(a);
 }
 
+void tdcrb::addFiles()
+{
+  Json::Value params=_geo->root();
+  if (params.isMember("files"))
+    {
+      const Json::Value& b =params["files"];
+      
+      for (Json::ValueConstIterator it = b.begin(); it != b.end(); ++it)
+	{
+	  const Json::Value& rf = *it;
+	  //std::cout<< rf[0].asUInt()<<" "<<rf[1].asString()<<std::endl;
+	  this->addRun(rf[0].asUInt(),rf[1].asString());
+
+	}
+    }
+}
 void tdcrb::findDataSet(std::string dirp,uint32_t runask)
 {
     std::stringstream spat;
@@ -259,9 +275,9 @@ void tdcrb::Read()
     {
       std::cout<<"NEW File "<<it->first<<" "<<it->second<<std::endl;
       _run=it->first;
-      std::stringstream sff;
-      sff<<"sudo chmod o+r "<<it->second;
-      system(sff.str().c_str());
+      //std::stringstream sff;
+      //sff<<"sudo chmod o+r "<<it->second;
+      //system(sff.str().c_str());
       this->open(it->second);
       if (_fdOut<=0)
 	this->read();

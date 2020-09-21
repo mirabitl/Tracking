@@ -33,11 +33,12 @@ public:
    
 
   void geometry(std::string name);
-    
+  inline jsonGeo* getGeometry(){ return _geo;}
   uint32_t totalSize();
   uint32_t eventNumber();
   uint32_t runNumber();
   void addRun(uint32_t r,std::string name) { _files.push_back(std::pair<uint32_t,std::string>(r,name));}
+  void addFiles();
   void setRun(int r){_run=r;}
   void setOutFileId(int32_t fid){_fdOut=fid;}
 
