@@ -228,12 +228,27 @@ void binaryreader::fillTimeMap(rbEvent *e)
 	   _timeMap.erase(it++);
 	 }
      }
+   // Now Build the planes hits
+   if (_timeMap.size()==0) return;
+   for (auto x:_timeMap)
+     {
+   	  // Build Points list
+	  _vPoints.clear();
+	  _hplanes.reset();
+	  for (int i = 1; i <= 8; i++)
+	    buildPlaneHits(e, i, x.second);
+	  std::cout<<"Candidate " <<x.first<<" pattern "<<_hplanes<<std::endl;
+	  
+     }
+   getchar();
 }
 void binaryreader::processEvent(rbEvent *e)
 {
   uint8_t u[16], v[16], w[16];
   if (!_started)
     return;
+  this->fillTimeMap(e);
+  return;
   //printf("BR => %d %d %d \n",e->run(),e->event(),e->gtc());
   _event = e->gtc();
   _run = e->run();
