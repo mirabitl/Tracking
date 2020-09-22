@@ -12,10 +12,11 @@
 	"trigger":0,
 	"coinc":1,
 	"minplan":4,
+	"dcut":5,
 	"minbot":2,
 	"pcut":0.1,
 	"thetacut":2.7,
-	"cpacut":2.
+	"cpacut":3.
     },
     "setup":
     [

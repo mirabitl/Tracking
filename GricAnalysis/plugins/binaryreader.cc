@@ -246,12 +246,310 @@ void binaryreader::fillTimeMap(rbEvent *e)
 	  if (topbs.count()<2) continue;
 	  if (botbs.count()<2) continue;
 	  std::cout<<_run<<" "<<_event<<" Candidate " <<x.first<<" Pt "<<_vPoints.size()<<" pattern "<<_hplanes<<" "<<topbs <<" "<<botbs<<std::endl;
+	  this->buildTracks();
+	  this->kickSearch();
 	  if (display) this->drawHits();	  
      }
    //getchar();
 
 }
 
+void binaryreader::buildTracks()
+{
+  // Build a top segments
+  top_tk.clear();
+  bot_tk.clear();
+  float px2cut = 0.01, thcut = 0.6, dcut = 7.;
+  ShowerParams isha;
+  double ax = 0, bx = 0, ay = 0, by = 0;
+  float zmin = z[4] - 1, zmax = z[1] + 1;
+  int ier = TPrincipalComponents((double *)&isha, zmin, zmax);
+  double *sx = isha.xm;
+  double *sv = isha.l2;
+  double z0 = sx[2];
+  double x0 = sx[0];
+  double y0 = sx[1];
+  double x1 = sx[0] + sv[0];
+  double y1 = sx[1] + sv[1];
+  double z1 = sx[2] + sv[2];
+  //double ax,ay,bx,by;
+  if (ier == 0)
+    {
+      ax = (x1 - x0) / (z1 - z0);
+      bx = x1 - ax * z1;
+      ay = (y1 - y0) / (z1 - z0);
+      by = y1 - ay * z1;
+    }
+  else
+    return;
+  
+
+  _t_h = 0;
+  _b_h = 0;
+  _a_h = 0;
+  top_tk.setDir(ax, ay, 1.);
+  top_tk.setOrig(bx, by, 0);
+  //printf(" ax %f bx %f ay %f by %f \n",ax,ay,bx,by);
+  for (auto x = _vPoints.begin(); x != _vPoints.end(); x++)
+    {
+      recoPoint &p = (*x);
+      if (p.Z() < zmin)
+	continue;
+      if (p.Z() > zmax)
+	continue;
+      
+      if (top_tk.distance(&p) < dcut || ier != 0)
+	{
+	  top_tk.addPoint(&p);
+	  _t_h |= (1 << p.plan() - 1);
+	}
+    }
+  // Ask at least 2 points
+  if (top_tk.size() < 2)
+    return;
+  top_tk.regression();
+  top_tk.calculateChi2();
+  
+  if (top_tk.pchi2() < px2cut &&top_tk.size()>2)
+    {
+      //fprintf(stderr,"top Chi2 cut \n");
+      top_tk.clear();
+    return;
+    }
+  if (abs(top_tk.dir().X()) > thcut)
+    {
+      //fprintf(stderr,"top X thcut \n");
+      top_tk.clear();
+      return;
+    }
+
+
+  if (abs(top_tk.dir().Y()) > thcut)
+        {
+	  //fprintf(stderr,"top  Y thcut \n");
+      top_tk.clear();
+      return;
+    }
+
+
+  
+  _t_c2 = top_tk.pchi2();
+  _t_x[0] = top_tk.orig().X();
+  _t_x[1] = top_tk.orig().Y();
+  _t_x[2] = top_tk.orig().Z();
+  _t_v[0] = top_tk.dir().X();
+  _t_v[1] = top_tk.dir().Y();
+  _t_v[2] = top_tk.dir().Z();
+
+  // Bottom track
+  zmin = z[8] - 1, zmax = z[5] + 1;
+  memset(&isha, 0, sizeof(ShowerParams));
+  ier = TPrincipalComponents((double *)&isha, zmin, zmax);
+  sx = isha.xm;
+  sv = isha.l2;
+  z0 = sx[2];
+  x0 = sx[0];
+  y0 = sx[1];
+  x1 = sx[0] + sv[0];
+  y1 = sx[1] + sv[1];
+  z1 = sx[2] + sv[2];
+  //double ax,ay,bx,by;
+  if (ier == 0)
+    {
+      ax = (x1 - x0) / (z1 - z0);
+      bx = x1 - ax * z1;
+      ay = (y1 - y0) / (z1 - z0);
+      by = y1 - ay * z1;
+    }
+  else
+    {
+      fprintf(stderr,"bot No shower \n");
+      return;
+    }
+  bot_tk.clear();
+  bot_tk.setDir(ax, ay, 1.);
+  bot_tk.setOrig(bx, by, 0);
+
+  for (auto x = _vPoints.begin(); x != _vPoints.end(); x++)
+    {
+      recoPoint &p = (*x);
+      if (p.Z() < zmin)
+	continue;
+      if (p.Z() > zmax)
+	continue;
+      
+      if (bot_tk.distance(&p) < dcut || ier != 0)
+	{
+	  bot_tk.addPoint(&p);
+	  _b_h |= (1 << p.plan() - 1);
+	}
+    }
+  if (bot_tk.size() >=2)
+    {
+      bot_tk.regression();
+      bot_tk.calculateChi2();
+      _b_c2 = bot_tk.pchi2();
+      _b_x[0] = bot_tk.orig().X();
+      _b_x[1] = bot_tk.orig().Y();
+      _b_x[2] = bot_tk.orig().Z();
+      _b_v[0] = bot_tk.dir().X();
+      _b_v[1] = bot_tk.dir().Y();
+      _b_v[2] = bot_tk.dir().Z();
+
+    }
+  else
+    {
+      fprintf(stderr,"bot Size too small \n");
+      bot_tk.clear();
+      return;
+    }
+  return;
+
+}
+void binaryreader::kickSearch()
+{
+  if (top_tk.size()<2) return;
+  if (bot_tk.size()<2) return;
+  float thetacut = _jparams["general"]["thetacut"].asFloat();
+  float pcut = _jparams["general"]["pcut"].asFloat();
+
+  float cpacut = _jparams["general"]["cpacut"].asFloat();
+  std::stringstream splane;
+  splane << "/gric/SEG/";
+  TH2 *hextb = _rh->GetTH2(splane.str() + "XYextBig");
+  TH3 *h3b = _rh->GetTH3(splane.str() + "XYZBig");
+  TH2 *hzxb = _rh->GetTH2(splane.str() + "ZXextBig");
+  TH2 *hzyb = _rh->GetTH2(splane.str() + "ZYextBig");
+  TH2 *hextc = _rh->GetTH2(splane.str() + "XYextCut");
+  
+  TH2 *hextl = _rh->GetTH2(splane.str() + "XYextLow");
+  
+  TH2 *hcpathet = _rh->GetTH2(splane.str() + "CPAvsTheta");
+  TH2 *hcpatheto = _rh->GetTH2(splane.str() + "CPAvsThetaOut");
+  TH1 *hthet = _rh->GetTH1(splane.str() + "Theta");
+  TH1 *hzbig = _rh->GetTH1(splane.str() + "zBig");
+  TH1 *hzlow = _rh->GetTH1(splane.str() + "zLow");
+  TH1 *hthi = _rh->GetTH1(splane.str() + "ThetaIn");
+  TH1 *htho = _rh->GetTH1(splane.str() + "ThetaOut");
+  TH1 *hcpa = _rh->GetTH1(splane.str() + "CPA");
+  TH1 *hcpai = _rh->GetTH1(splane.str() + "CPAI");
+  TH1 *hcpao = _rh->GetTH1(splane.str() + "CPAO");
+  TH1 *hrd3 = _rh->GetTH1(splane.str() + "Distance");
+  TH1 *hprob = _rh->GetTH1(splane.str() + "Prob");
+  TH1 *hprobc = _rh->GetTH1(splane.str() + "ProbCut");
+  if (hextb == NULL)
+    {
+      hthet = _rh->BookTH1(splane.str() + "Theta", 360, 0., 90.);
+      hcpathet = _rh->BookTH2(splane.str() + "CPAvsTheta", 80, 0., 20., 50, 0., 12.5);
+      hcpatheto = _rh->BookTH2(splane.str() + "CPAvsThetaOut", 80, 0., 20., 50, 0., 12.5);
+      hthi = _rh->BookTH1(splane.str() + "ThetaIn", 360, 0., 90.);
+      hzbig = _rh->BookTH1(splane.str() + "zBig", 300, 0., 300.);
+      hzlow = _rh->BookTH1(splane.str() + "zLow", 300, 0., 300.);
+      htho = _rh->BookTH1(splane.str() + "ThetaOut", 360, 0., 90.);
+      hcpa = _rh->BookTH1(splane.str() + "CPA", 200, 0., 50.);
+      hrd3 = _rh->BookTH1(splane.str() + "Distance", 200, 0., 10.);
+      hprob = _rh->BookTH1(splane.str() + "Prob", 200, 0., 1.);
+      hprobc = _rh->BookTH1(splane.str() + "ProbCut", 200, 0., 1.);
+      hcpai = _rh->BookTH1(splane.str() + "CPAI", 200, 0., 50.);
+      hcpao = _rh->BookTH1(splane.str() + "CPAO", 200, 0., 50.);
+      hextb = _rh->BookTH2(splane.str() + "XYextBig", 24, -30., 30., 24, 0., 60.);
+      h3b = _rh->BookTH3(splane.str() + "XYZBig", 16, -30., 30., 16, 0., 60., 60, 0., 240.);
+      hzxb = _rh->BookTH2(splane.str() + "ZXextBig", 50, z[5], z[4], 32, -30., 30.);
+      hzyb = _rh->BookTH2(splane.str() + "ZYextBig", 50, z[5], z[4], 32, 0., 60.);
+      hextc = _rh->BookTH2(splane.str() + "XYextCut", 32, -30., 30., 32, 0., 60.);
+      hextl = _rh->BookTH2(splane.str() + "XYextLow", 32, -30., 30., 32, 0., 60.);
+    }
+
+  double sc = top_tk.dir().Dot(bot_tk.dir()) / sqrt(top_tk.dir().Mag2()) / sqrt(bot_tk.dir().Mag2());
+  double th = acos(sc) * 180 / M_PI;
+  std::cout << "ICI COSTH " << sc << " DEG " << th << std::endl;
+
+  _cos_th = sc;
+  _th = th;
+  if (th > 15)
+    return;
+
+  double adist;
+  ROOT::Math::XYZPoint p1, p2;
+  top_tk.cap(bot_tk, adist, p1, p2);
+
+  std::cout << p1.X() << ":" << p1.Y() << ":" << p1.Z() << std::endl;
+  std::cout << p2.X() << ":" << p2.Y() << ":" << p2.Z() << std::endl;
+  float zcross = (p1.Z() + p2.Z()) / 2.;
+		  //printf("%x %x %x \n",hcpa,hcpai,hcpao);
+  std::cout << "LA DISTANCE " << adist << " Z CROSS " << zcross << std::endl;
+  if (zcross < z[5] + 1 || zcross > z[4] - 1)
+    return;
+  fflush(stdout);
+
+  _xcross = (p1.X() + p2.X()) / 2.;
+  _ycross = (p1.Y() + p2.Y()) / 2.;
+  _zcross = zcross;
+  _dist = adist;
+
+  ROOT::Math::XYZPoint po3 = bot_tk.extrapolate(z[4]);
+  ROOT::Math::XYZPoint pi3 = top_tk.extrapolate(z[4]);
+  ROOT::Math::XYZVector d3 = po3 - pi3;
+
+  //std::cout<<p1.X()<<" "<<p1.Y()<<" "<<p1.Z()<<std::endl;
+  double rd3 = sqrt(d3.Mag2());
+  double prob = 1.;
+  hrd3->Fill(rd3);
+  if (rd3 < 8)
+    {
+      prob = 1. - erf(rd3 / sqrt(2.) / 2.);
+      if (prob < 1E-20)
+	prob = 1E-20;
+      printf("Distance %f %f %f %f \n", rd3, prob, th, thetacut);
+      if (th > thetacut)
+	hprobc->Fill(prob);
+      else
+	hprob->Fill(prob);
+    }
+
+  float fdist = adist;
+  hcpa->Fill(fdist);
+  
+  if (prob < pcut)
+    hthi->Fill(th);
+  else
+    htho->Fill(th);
+  if (zcross < z[4] - 1 && zcross > z[5] + 1)
+    {
+
+      hcpathet->Fill(th, fdist);
+    }
+  else
+    {
+      hcpatheto->Fill(th, fdist);
+    }
+  if (th > thetacut && prob < pcut && th < 15 && fdist < cpacut)
+    {
+      hcpai->Fill(fdist);
+      hzbig->Fill(zcross);
+      hextc->Fill((p1.X() + p2.X()) / 2., (p1.Y() + p2.Y()) / 2.);
+    }
+  else
+    {
+      hcpao->Fill(fdist);
+      hzlow->Fill(zcross);
+    }
+  hthet->Fill(th);
+  
+  if (th > thetacut && fdist < cpacut && prob < pcut && zcross < z[4] - 1 && zcross > z[5] + 1)
+    {
+      hextb->Fill((p1.X() + p2.X()) / 2., (p1.Y() + p2.Y()) / 2.);
+      h3b->Fill((p1.X() + p2.X()) / 2., (p1.Y() + p2.Y()) / 2., _zcross);
+      if (th > 1.5 * thetacut)
+	{
+	  hzxb->Fill(zcross, (p1.X() + p2.X()) / 2.);
+	  hzyb->Fill(zcross, (p1.Y() + p2.Y()) / 2.);
+	}
+    }
+  else
+    hextl->Fill(_xcross,zcross);
+
+}
 void binaryreader::drawHits()
 {
   
@@ -282,7 +580,8 @@ void binaryreader::drawHits()
       hzx->SetMarkerStyle(25);
       hzx->SetMarkerColor(kRed);
       hzx->Draw("P");
-      
+      if (top_tk.size()>1) top_tk.linex()->Draw("SAME");
+      if (bot_tk.size()>1) bot_tk.linex()->Draw("SAME");
       TCHits->Modified();
       TCHits->Draw();
       TCHits->Update();
@@ -290,6 +589,8 @@ void binaryreader::drawHits()
       hzy->SetMarkerStyle(22);
       hzy->SetMarkerColor(kGreen);
       hzy->Draw("P");
+      if (top_tk.size()>1) top_tk.liney()->Draw("SAME");
+      if (bot_tk.size()>1) bot_tk.liney()->Draw("SAME");
       TCHits->Modified();
       TCHits->Draw();
       TCHits->Update();
