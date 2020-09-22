@@ -50,6 +50,7 @@ class binaryreader : public rbProcessor
     virtual  void processEvent(rbEvent* e);
     virtual  void processRunHeader(std::vector<uint32_t> header);
     virtual void loadParameters(Json::Value params);
+    void fillTimeMap(rbEvent* e);
     void buildPosition(rbEvent* e,uint32_t plane,uint32_t ddmax=0,bool all=false);
     void buildPlaneHits(rbEvent* e,uint32_t plane,std::vector<uint32_t>& hits);
     int TPrincipalComponents(double result[21],float zmin,float zmax);
