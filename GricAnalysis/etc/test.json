@@ -1,12 +1,8 @@
 {
     "files":
     [
-	[1350,"/home/acqilc/PULSALYS/SMM_210920_005318_B0_R1350.dat"],
-	[1350,"/home/acqilc/PULSALYS/SMM_210920_015614_B0_R1350.dat"],
-	[1350,"/home/acqilc/PULSALYS/SMM_210920_025911_B0_R1350.dat"],
-	[1350,"/home/acqilc/PULSALYS/SMM_210920_040205_B0_R1350.dat"],
-	[1350,"/home/acqilc/PULSALYS/SMM_210920_050505_B0_R1350.dat"],
-	[1350,"/home/acqilc/PULSALYS/SMM_210920_060820_B0_R1350.dat"]
+	[1364,"/home/acqilc/PULSALYS/SMM_220920_045452_B0_R1364.dat"],
+	[1364,"/home/acqilc/PULSALYS/SMM_220920_063104_B0_R1364.dat"]
     ],
     "general":
     {

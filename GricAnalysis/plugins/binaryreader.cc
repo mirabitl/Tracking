@@ -40,6 +40,26 @@ static TCanvas* TCHT=NULL;
 static TCanvas* TCCluster=NULL;
 static       float z[16]={0,54.,0,0,76.,10.,0,0,32,0,0,0,0,0,0,0};
 //using namespace zdaq;
+
+// TTree info
+
+
+typedef struct {
+  uint32_t    run; 
+  uint32_t    event; 
+  uint32_t    gtc;
+  uint32_t    idx;
+  uint64_t    bcid;
+  uint64_t    bsplan;
+  float t_ax,t_bx,t_ay,t_by,t_chi2,t_pchi2;
+  float b_ax,b_bx,b_ay,b_by,b_chi2,b_pchi2;
+  float ctheta,dist,xcross,ycross,zcross;
+  float ax,bx,ay,by,chi2,pchi2;
+} event_t;
+
+event_t theEvent;
+
+
 binaryreader::binaryreader() : _run(0),_started(false),_fdOut(-1),_totalSize(0),_event(0) {}
 void binaryreader::init(uint32_t run)
 {
@@ -1774,6 +1794,53 @@ int32_t binaryreader::TPrincipalComponents(double result[21],float zmin,float zm
 	*/
 	return 0;
 }
+
+void binaryreader::createTrees(std::string s)
+{
+
+  treeFile_ = new TFile(s.c_str(),"recreate");
+  treeFile_->cd();
+
+  tEvents_ = new TTree("events","Events");
+
+  theEvent.idx=0;
+
+  tEvents_->Branch("bcid",&theEvent.bcid,"bcid/l");
+  tEvents_->Branch("idx",&theEvent.idx,"idx/I");
+  tEvents_->Branch("run",&theEvent.run,"run/i");
+  tEvents_->Branch("event",&theEvent.event,"event/i ");
+  tEvents_->Branch("gtc",&theEvent.gtc,"gtc/i");
+  tEvents_->Branch("bsplan",&theEvent.bsplan,"bsplan/l");
+  tEvents_->Branch("t_ax",&theEvent.t_ax,"t_ax/F");
+  tEvents_->Branch("t_ay",&theEvent.t_ay,"t_ay/F");
+  tEvents_->Branch("t_bx",&theEvent.t_bx,"t_bx/F");
+  tEvents_->Branch("t_by",&theEvent.t_by,"t_by/F");
+  tEvents_->Branch("t_chi2",&theEvent.t_chi2,"t_chi2/F");
+  tEvents_->Branch("t_pchi2",&theEvent.t_pchi2,"t_pchi2/F");
+  tEvents_->Branch("b_ax",&theEvent.b_ax,"b_ax/F");
+  tEvents_->Branch("b_ay",&theEvent.b_ay,"b_ay/F");
+  tEvents_->Branch("b_bx",&theEvent.b_bx,"b_bx/F");
+  tEvents_->Branch("b_by",&theEvent.b_by,"b_by/F");
+  tEvents_->Branch("b_chi2",&theEvent.b_chi2,"b_chi2/F");
+  tEvents_->Branch("b_pchi2",&theEvent.b_pchi2,"b_pchi2/F");
+
+
+
+
+  std::cout << " create Trees"<<std::endl;
+
+
+
+}
+void binaryreader::closeTrees()
+{
+  treeFile_->cd();
+  tEvents_->Write();
+  treeFile_->ls();
+  treeFile_->Close();
+
+}
+
 
 extern "C" 
 {

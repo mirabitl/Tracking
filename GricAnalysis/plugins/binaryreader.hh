@@ -21,6 +21,8 @@
 #include <boost/bind.hpp>
 
 #include "recoTrack.hh"
+#include "TTree.h"
+#include "TFile.h"
 
 //#define TSTEP 0.432
 #define TSTEP 0.4988
@@ -51,7 +53,8 @@ class binaryreader : public rbProcessor
     void buildPosition(rbEvent* e,uint32_t plane,uint32_t ddmax=0,bool all=false);
     void buildPlaneHits(rbEvent* e,uint32_t plane,std::vector<uint32_t>& hits);
     int TPrincipalComponents(double result[21],float zmin,float zmax);
-
+    void createTrees(std::string s);
+    void closeTrees();
   private:
     uint32_t _run,_event,_totalSize;
     int32_t _fdOut;
@@ -80,7 +83,9 @@ class binaryreader : public rbProcessor
     double _t_x[3],_t_v[3],_b_x[3],_b_v[3],_a_x[3],_a_v[3];
     double _t_c2,_b_c2,_a_c2;
     double _cos_th,_th,_xcross,_ycross,_zcross,_dist;
-    
+    TTree* tEvents_;
+    TFile* treeFile_;
+
   };
 
 #endif
