@@ -230,6 +230,7 @@ void binaryreader::fillTimeMap(rbEvent *e)
      }
    // Now Build the planes hits
    if (_timeMap.size()==0) return;
+   bool display = _jparams["general"]["display"].asUInt() == 1;
    for (auto x:_timeMap)
      {
    	  // Build Points list
@@ -238,21 +239,78 @@ void binaryreader::fillTimeMap(rbEvent *e)
 	  for (int i = 1; i <= 8; i++)
 	    buildPlaneHits(e, i, x.second);
 	  if (_hplanes.count()<nplanesmin) continue;
-	  std::cout<<"Candidate " <<x.first<<" pattern "<<_hplanes<<std::endl;
-	  
+	  uint64_t ltopbs=(_hplanes.to_ulong()&30);
+	  uint64_t lbotbs=(_hplanes.to_ulong()&480);
+	  std::bitset<16> topbs(ltopbs);
+	  std::bitset<16> botbs(lbotbs);
+	  if (topbs.count()<2) continue;
+	  if (botbs.count()<2) continue;
+	  std::cout<<_run<<" "<<_event<<" Candidate " <<x.first<<" Pt "<<_vPoints.size()<<" pattern "<<_hplanes<<" "<<topbs <<" "<<botbs<<std::endl;
+	  if (display) this->drawHits();	  
      }
-   getchar();
+   //getchar();
+
+}
+
+void binaryreader::drawHits()
+{
+  
+      TH2 *hzx = _rh->GetTH2("ZX");
+      TH2 *hzy = _rh->GetTH2("ZY");
+      if (hzx == NULL)
+	{
+	  hzx = _rh->BookTH2("ZX", 100., 0., 400., 120., -40., 40.);
+	  hzy = _rh->BookTH2("ZY", 100., 0., 400., 180., 0., 90.);
+	}
+      hzx->Reset();
+      hzy->Reset();
+
+      for (auto x:_vPoints)
+	{
+	  hzx->Fill(x.Z(),x.X());
+	  hzy->Fill(x.Z(),x.Y());
+	  fprintf(stderr,"%f %f %f \n",x.Z(),x.X(),x.Y());
+	}
+      if (TCHits == NULL)
+	{
+	  TCHits = new TCanvas("TCHits", "tChits1", 900, 900);
+	  TCHits->Modified();
+	  TCHits->Draw();
+	  TCHits->Divide(1, 2);
+	}
+      TCHits->cd(1);
+      hzx->SetMarkerStyle(25);
+      hzx->SetMarkerColor(kRed);
+      hzx->Draw("P");
+      
+      TCHits->Modified();
+      TCHits->Draw();
+      TCHits->Update();
+      TCHits->cd(2);
+      hzy->SetMarkerStyle(22);
+      hzy->SetMarkerColor(kGreen);
+      hzy->Draw("P");
+      TCHits->Modified();
+      TCHits->Draw();
+      TCHits->Update();
+      ::usleep(100);
+      TCHits->Update();
+      getchar();
+    
+
+  
 }
 void binaryreader::processEvent(rbEvent *e)
 {
   uint8_t u[16], v[16], w[16];
   if (!_started)
     return;
-  this->fillTimeMap(e);
-  return;
   //printf("BR => %d %d %d \n",e->run(),e->event(),e->gtc());
   _event = e->gtc();
   _run = e->run();
+  this->fillTimeMap(e);
+  return;
+
   _timeMap.clear();
   _maxTime = 0;
   std::stringstream sraw;
