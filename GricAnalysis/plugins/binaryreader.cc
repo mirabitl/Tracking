@@ -237,6 +237,7 @@ void binaryreader::fillTimeMap(rbEvent *e)
 	  _hplanes.reset();
 	  for (int i = 1; i <= 8; i++)
 	    buildPlaneHits(e, i, x.second);
+	  if (_hplanes.count()<nplanesmin) continue;
 	  std::cout<<"Candidate " <<x.first<<" pattern "<<_hplanes<<std::endl;
 	  
      }
