@@ -40,7 +40,7 @@
 using namespace zdaq;
 using namespace sdhcal;
 tdcrb::tdcrb(std::string dire) : _directory(dire),_run(0),_started(false),_fdIn(-1),_totalSize(0),_event(0),_geo(NULL),_t0(2E50),_t(0),_tspill(0)
-			       ,_readoutTotalTime(0),_runType(0),_dacSet(0),_fdOut(-1),_bxId0(0),_nrmax(5000000),_nrfirst(0)
+			       ,_readoutTotalTime(0),_runType(0),_dacSet(0),_fdOut(-1),_bxId0(0),_nrmax(50000000),_nrfirst(0)
 {_rh=DCHistogramHandler::instance();
 
 }
@@ -519,7 +519,7 @@ void tdcrb::read()
 	    {
 	    for (auto p:_processors)
 	      p->processEvent(&_theEvent);
-	    if (_gtc%10000==0 && _event>0)
+	    if (_gtc%50000==0 && _event>0)
 	      {
 		std::stringstream sr;
 		//sr<<_geo->general()["directory"].asString()<<"/histo"<<_run<<"_0.root";

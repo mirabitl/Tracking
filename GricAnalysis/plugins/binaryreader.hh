@@ -60,7 +60,7 @@ class binaryreader : public rbProcessor
     void createTrees(std::string s);
     void closeTrees();
   private:
-    uint32_t _run,_event,_totalSize;
+    uint32_t _run,_event,_totalSize,_gtc;
     int32_t _fdOut;
     bool _started,_dummy;
     DCHistogramHandler* _rh;
@@ -70,11 +70,11 @@ class binaryreader : public rbProcessor
     Json::Value _jparams;
     std::map<uint32_t,Json::Value> _plinfo;
     std::bitset<16> _hplanes;
-
+    uint64_t _bsplanes;
     // Tracking
     recoTrack top_tk;
     recoTrack bot_tk;
-
+    
     recoTrack vstop[10000];
     uint32_t nstop,lastprocessed;
     // TTree
@@ -87,6 +87,7 @@ class binaryreader : public rbProcessor
     double _t_x[3],_t_v[3],_b_x[3],_b_v[3],_a_x[3],_a_v[3];
     double _t_c2,_b_c2,_a_c2;
     double _cos_th,_th,_xcross,_ycross,_zcross,_dist;
+    double _rd3,_probd3;
     TTree* tEvents_;
     TFile* treeFile_;
 
