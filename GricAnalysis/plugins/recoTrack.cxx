@@ -18,6 +18,29 @@ void recoTrack::clear()
 
 void recoTrack::addPoint(recoPoint* p)
 {
+
+  //  Check distance
+  if (_dir.X()!=0 && _dir.Y()!=0)
+    {
+      double dp=this->distance(p);
+      
+      for (auto ip=_points.begin();ip!=_points.end();++ip)
+	{
+	  if ((*ip)->plan()==p->plan())
+	    if (distance((*ip))<dp)
+	      return;
+	    else
+	      {
+		//fprintf(stderr,"Erasing %d \n",_points.size());
+		_points.erase(ip);
+		ip--;
+		//fprintf(stderr,"Erasing after%d \n",_points.size());
+		if (_points.size()==0) break;
+	
+	      }
+	      
+	}
+    }
   _points.push_back(p);
   _valid=(_points.size()>=2);
 

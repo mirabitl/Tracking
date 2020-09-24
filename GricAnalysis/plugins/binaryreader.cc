@@ -103,12 +103,25 @@ void binaryreader::processRunHeader(std::vector<uint32_t> header)
 void binaryreader::fillTimeMap(rbEvent *e)
 {
   _timeMap.clear();
+  std::stringstream sraw;
+  sraw << "/gric/";
+  TH1 *hfc = _rh->GetTH1(sraw.str() + "FrameCount");
+  TH1 *hftm = _rh->GetTH1(sraw.str() + "MaxTime");
+
+
+  if (hfc == NULL)
+    {
+
+      hfc = _rh->BookTH1(sraw.str() + "FrameCount", 255, 0., 255.);
+      hftm = _rh->BookTH1(sraw.str() + "MaxTime", 65536, 0., 2.);
+    }
 
   // Find Maximum time and ramFull
   _maxTime = 0;
   bool _ramFull = false;
   for (int id = 0; id < MAXDIF; id++)
     {
+      hfc->Fill(id * 1., e->frameCount(id));
       _ramFull = _ramFull || (e->frameCount(id) > 126);
       for (int j = 0; j < e->frameCount(id); j++)
 	{
@@ -118,6 +131,7 @@ void binaryreader::fillTimeMap(rbEvent *e)
 	    _maxTime = e->bcid(idx);
 	}
     }
+  hftm->Fill(_maxTime*2E-7);
   // Fill the Map
   int32_t bcidmin=40;
   for (int id = 0; id < MAXDIF; id++)
@@ -261,7 +275,7 @@ void binaryreader::buildTracks()
   // Build a top segments
   top_tk.clear();
   bot_tk.clear();
-  float px2cut = 0.01, thcut = 0.9, dcut = 7.;
+  float px2cut = 0.01, thcut = 1.73, dcut = 7.;
   ShowerParams isha;
   double ax = 0, bx = 0, ay = 0, by = 0;
   float zmin = z[4] - 1, zmax = z[1] + 1;
@@ -429,7 +443,7 @@ void binaryreader::kickSearch()
 
   _cos_th = sc;
   _th = th;
-  if (th > 25)
+  if (_cos_th < 0.5)
     return;
 
   double adist;
@@ -450,15 +464,15 @@ void binaryreader::kickSearch()
   _zcross = zcross;
   _dist = adist;
 
-  ROOT::Math::XYZPoint po3 = bot_tk.extrapolate(z[4]);
-  ROOT::Math::XYZPoint pi3 = top_tk.extrapolate(z[4]);
+  ROOT::Math::XYZPoint po3 = bot_tk.extrapolate(z[5]);
+  ROOT::Math::XYZPoint pi3 = top_tk.extrapolate(z[5]);
   ROOT::Math::XYZVector d3 = po3 - pi3;
 
   //std::cout<<p1.X()<<" "<<p1.Y()<<" "<<p1.Z()<<std::endl;
   double rd3 = sqrt(d3.Mag2());
   double prob = 1.;
 
-  if (rd3 < 8)
+  if (rd3 < 800)
     {
       prob = 1. - erf(rd3 / sqrt(0.5) / 2.);
       if (prob < 1E-20)

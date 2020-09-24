@@ -1,12 +1,7 @@
 {
     "files":
     [
-
-[1287,"/data/NAS/TEST_PULSALYS/SMM_110920_152239_B0_R1287.dat"],
-[1287,"/data/NAS/TEST_PULSALYS/SMM_110920_152245_B0_R1287.dat"],
-[1287,"/data/NAS/TEST_PULSALYS/SMM_110920_160538_B0_R1287.dat"],
-[1287,"/data/NAS/TEST_PULSALYS/SMM_110920_164715_B0_R1287.dat"],
-[1287,"/data/NAS/TEST_PULSALYS/SMM_110920_172817_B0_R1287.dat"]
+	[1368,"/home/acqilc/PULSALYS/SMM_240920_103232_B0_R1368.dat"]
 
     ],
     "general":
@@ -16,9 +11,9 @@
 	"display":0,
 	"trigger":0,
 	"coinc":1,
-	"minplan":6,
+	"minplan":4,
 	"dcut":5,
-	"minbot":3,
+	"minbot":2,
 	"pcut":0.1,
 	"thetacut":3.0,
 	"cpacut":2.
