@@ -90,6 +90,7 @@ public:
   inline double pchi2() const {return _pchi2;}
   inline float zmin() const { return zmin_;}
   inline float zmax() const { return zmax_;}
+  inline std::bitset<16> plh() const {return _plh;}
   friend std::ostream &operator<<( std::ostream &os, 
                                        const recoTrack &obj)
   {
@@ -99,7 +100,9 @@ public:
     os<<" Z:"<<obj.orig().Z();
     os<<" AX:"<<obj.dir().X();
     os<<" AY:"<<obj.dir().Y()<<std::endl;
-    os<<" N points : "<<obj.size()<<std::endl;
+    os<<" N points : "<<obj.size();
+    os<<"Chi2 : "<<obj.chi2()<<" "<<obj.pchi2()<< std::endl;
+    os<<obj.plh()<<std::endl;
     return os;
   }
   bool planUsed(uint32_t p){return _plh[p]==1;}

@@ -52,6 +52,7 @@ class binaryreader : public rbProcessor
     virtual void loadParameters(Json::Value params);
     void fillTimeMap(rbEvent* e);
     void buildTracks();
+    void fillTracks();
     void kickSearch();
     void drawHits();
     void buildPosition(rbEvent* e,uint32_t plane,uint32_t ddmax=0,bool all=false);
@@ -74,6 +75,7 @@ class binaryreader : public rbProcessor
     // Tracking
     recoTrack top_tk;
     recoTrack bot_tk;
+    recoTrack a_tk;
     
     recoTrack vstop[10000];
     uint32_t nstop,lastprocessed;

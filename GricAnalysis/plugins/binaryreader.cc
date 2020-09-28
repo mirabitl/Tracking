@@ -39,6 +39,7 @@ static TCanvas *TCEdge = NULL;
 static TCanvas *TCHT = NULL;
 static TCanvas *TCCluster = NULL;
 static float z[16] = {0, 54., 0, 0, 76., 10., 0, 0, 32, 0, 0, 0, 0, 0, 0, 0};
+static int32_t togric[16]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 //using namespace zdaq;
 
 // TTree info
@@ -85,6 +86,7 @@ void binaryreader::loadParameters(Json::Value params)
 	  uint32_t plane = ch["num"].asUInt();
 	  std::pair<uint32_t, Json::Value> p(pl, ch);
 	  z[plane] = ch["z"].asFloat();
+	  togric[plane]=pl;
 	  _plinfo.insert(p);
 	  printf("%s GRIC %d Plane  %d is at %f cm from floor \n", _plinfo[pl]["name"].asString().c_str(), pl, plane, z[plane]);
 	}
@@ -133,10 +135,28 @@ void binaryreader::fillTimeMap(rbEvent *e)
     }
   hftm->Fill(_maxTime*2E-7);
   // Fill the Map
-  int32_t bcidmin=40;
+   int32_t bcidmin=40;
   for (int id = 0; id < MAXDIF; id++)
     if (e->frameCount(id))
       {
+	 #define RAWHIST
+  #ifdef RAWHIST
+  std::stringstream sraw1;
+  sraw1 << "/gric/ASIC" << std::hex << id << std::dec << "/";
+  
+  TH1 *hp1 = _rh->GetTH1(sraw1.str() + "Pad1");
+  TH1 *hft = _rh->GetTH1(sraw1.str() + "FrameTime");
+  TH1 *hfc = _rh->GetTH1(sraw1.str() + "FrameCount");
+  if (hp1 == NULL)
+    {
+      hp1 = _rh->BookTH1(sraw1.str() + "Pad1", 64, 0., 64.);
+      hft = _rh->BookTH1(sraw1.str() + "FrameTime", 65536, 0., 2.);
+      hfc = _rh->BookTH1(sraw1.str() + "FrameCount", 65, 0., 65.);
+    }
+
+
+  #endif
+ 
 	uint16_t igplane = (id >> 4) & 0xF;
 	uint16_t plane = _plinfo[igplane]["num"].asUInt();
 			
@@ -153,7 +173,18 @@ void binaryreader::fillTimeMap(rbEvent *e)
 	    std::bitset<64> bs;
 	    bs.reset();
 	    for (int k = 0; k < 64; k++)
-	      if (e->pad0(idx, k) || e->pad1(idx, k)) bs.set(k);
+	      if (e->pad0(idx, k) || e->pad1(idx, k))
+		{
+		  bs.set(k);
+		  #ifdef RAWHIST
+		  hp1->Fill(k * 1.);
+		  #endif
+		}
+	    #ifdef RAWHIST
+	    hfc->Fill(bs.count() * 1.);
+	    hft->Fill((_maxTime - e->bcid(idx)) * 2E-7);
+
+	    #endif
 	    if (bs.count() > 60)
 	      continue;
 				
@@ -192,18 +223,18 @@ void binaryreader::fillTimeMap(rbEvent *e)
 
   // Now select time slice with at least NPLANESMIN hit
   int32_t nplanesmin = _jparams["general"]["minplan"].asUInt();
-   std::bitset<16> planes;
-   planes.reset();
-   uint8_t u[16], v[16], w[16];
-   for (auto it=_timeMap.begin();it!=_timeMap.end();)
-     {
-       auto x=(*it);
-       _bxdif = x.first;
-       int32_t dd = _maxTime - x.first;
-	  // On veut 2 directions sur nplanesmin
-       bool candidate=false;
-       if (x.second.size() > nplanesmin * 2 && dd>20)
-	 {
+  std::bitset<16> planes;
+  planes.reset();
+  uint8_t u[16], v[16], w[16];
+  for (auto it=_timeMap.begin();it!=_timeMap.end();)
+    {
+      auto x=(*it);
+      _bxdif = x.first;
+      int32_t dd = _maxTime - x.first;
+      // On veut 2 directions sur nplanesmin
+      bool candidate=false;
+      if (x.second.size() > nplanesmin * 2 && dd>20)
+	{
 	      
 	  planes.reset();
 	  memset(u, 0, 16);
@@ -232,41 +263,42 @@ void binaryreader::fillTimeMap(rbEvent *e)
 	    }
 	  uint32_t nplanes = planes.count();
 	  candidate= (nplanes >= nplanesmin);
-	 }
-       if (candidate)
-	 {
-	   it++;
-	 }
-       else
-	 {
-	   it->second.clear();
-	   _timeMap.erase(it++);
-	 }
-     }
-   // Now Build the planes hits
-   if (_timeMap.size()==0) return;
-   bool display = _jparams["general"]["display"].asUInt() == 1;
-   for (auto x:_timeMap)
-     {
-   	  // Build Points list
-	  _vPoints.clear();
-	  _hplanes.reset();
-	  for (int i = 1; i <= 8; i++)
-	    buildPlaneHits(e, i, x.second);
-	  if (_hplanes.count()<nplanesmin) continue;
-	  uint64_t ltopbs=(_hplanes.to_ulong()&30);
-	  uint64_t lbotbs=(_hplanes.to_ulong()&480);
-	  _bsplanes= _hplanes.to_ulong();
-	  std::bitset<16> topbs(ltopbs);
-	  std::bitset<16> botbs(lbotbs);
-	  if (topbs.count()<2) continue;
-	  if (botbs.count()<2) continue;
-	  //std::cout<<_run<<" "<<_event<<" Candidate " <<x.first<<" Pt "<<_vPoints.size()<<" pattern "<<_hplanes<<" "<<topbs <<" "<<botbs<<std::endl;
-	  this->buildTracks();
-	  this->kickSearch();
-	  if (display) this->drawHits();	  
-     }
-   //getchar();
+	}
+      if (candidate)
+	{
+	  it++;
+	}
+      else
+	{
+	  it->second.clear();
+	  _timeMap.erase(it++);
+	}
+    }
+  // Now Build the planes hits
+  if (_timeMap.size()==0) return;
+  bool display = _jparams["general"]["display"].asUInt() == 1;
+  for (auto x:_timeMap)
+    {
+      // Build Points list
+      _bxdif=x.first;
+      _vPoints.clear();
+      _hplanes.reset();
+      for (int i = 1; i <= 8; i++)
+	buildPlaneHits(e, i, x.second);
+      if (_hplanes.count()<nplanesmin) continue;
+      uint64_t ltopbs=(_hplanes.to_ulong()&30);
+      uint64_t lbotbs=(_hplanes.to_ulong()&480);
+      _bsplanes= _hplanes.to_ulong();
+      std::bitset<16> topbs(ltopbs);
+      std::bitset<16> botbs(lbotbs);
+      if (topbs.count()<2) continue;
+      if (botbs.count()<2) continue;
+      //std::cout<<_run<<" "<<_event<<" Candidate " <<x.first<<" Pt "<<_vPoints.size()<<" pattern "<<_hplanes<<" "<<topbs <<" "<<botbs<<std::endl;
+      this->buildTracks();
+      this->kickSearch();
+      if (display) this->drawHits();	  
+    }
+  //getchar();
 
 }
 
@@ -316,6 +348,8 @@ void binaryreader::buildTracks()
       
       if (top_tk.distance(&p) < dcut || ier != 0)
 	{
+	  //	  std::cout<<x->X()<<" "<<x->Y()<<" "<<x->Z()<<" TOPP_TK"<<x->plan()<<std::endl;
+
 	  top_tk.addPoint(&p);
 	  _t_h |= (1 << p.plan() - 1);
 	}
@@ -330,7 +364,7 @@ void binaryreader::buildTracks()
     {
       //fprintf(stderr,"top Chi2 cut \n");
       top_tk.clear();
-    return;
+      return;
     }
   if (abs(top_tk.dir().X()) > thcut)
     {
@@ -341,8 +375,8 @@ void binaryreader::buildTracks()
 
 
   if (abs(top_tk.dir().Y()) > thcut)
-        {
-	  //fprintf(stderr,"top  Y thcut \n");
+    {
+      //fprintf(stderr,"top  Y thcut \n");
       top_tk.clear();
       return;
     }
@@ -396,6 +430,7 @@ void binaryreader::buildTracks()
       
       if (bot_tk.distance(&p) < dcut || ier != 0)
 	{
+	  //std::cout<<x->X()<<" "<<x->Y()<<" "<<x->Z()<<" BOT_TK"<<x->plan()<<std::endl;
 	  bot_tk.addPoint(&p);
 	  _b_h |= (1 << p.plan() - 1);
 	}
@@ -411,6 +446,7 @@ void binaryreader::buildTracks()
       _b_v[0] = bot_tk.dir().X();
       _b_v[1] = bot_tk.dir().Y();
       _b_v[2] = bot_tk.dir().Z();
+      this->fillTracks();
 
     }
   else
@@ -420,6 +456,182 @@ void binaryreader::buildTracks()
       return;
     }
   return;
+
+}
+void binaryreader::fillTracks()
+{
+  a_tk.clear();
+  float dcut=7.0;
+  ShowerParams isha;
+  double ax = 0, bx = 0, ay = 0, by = 0;
+  float zmin = z[8] - 1, zmax = z[1] + 1;
+  int ier = TPrincipalComponents((double *)&isha, zmin, zmax);
+  double *sx = isha.xm;
+  double *sv = isha.l2;
+  double z0 = sx[2];
+  double x0 = sx[0];
+  double y0 = sx[1];
+  double x1 = sx[0] + sv[0];
+  double y1 = sx[1] + sv[1];
+  double z1 = sx[2] + sv[2];
+  //double ax,ay,bx,by;
+  if (ier == 0)
+    {
+      ax = (x1 - x0) / (z1 - z0);
+      bx = x1 - ax * z1;
+      ay = (y1 - y0) / (z1 - z0);
+      by = y1 - ay * z1;
+    }
+  else
+    return;
+  
+
+  _a_h = 0;
+  a_tk.setDir(ax, ay, 1.);
+  a_tk.setOrig(bx, by, 0);
+  //printf("A_TK  ax %f bx %f ay %f by %f \n",ax,ay,bx,by);
+  for (auto x = _vPoints.begin(); x != _vPoints.end(); x++)
+    {
+      recoPoint &p = (*x);
+      if (p.Z() < zmin)
+	continue;
+      if (p.Z() > zmax)
+	continue;
+      
+      if (a_tk.distance(&p) < dcut || ier != 0)
+	{
+	  //std::cout<<x->X()<<" "<<x->Y()<<" "<<x->Z()<<" A_TK"<<x->plan()<<std::endl;
+	  //fflush(stdout);
+
+	  a_tk.addPoint(&p);
+	  _a_h |= (1 << p.plan() - 1);
+	}
+    }
+  if (a_tk.size()<=2)
+    {
+      a_tk.clear();
+      return;
+    }
+  //std::cout<<a_tk<<std::endl<<"============================="<<std::endl;;
+  
+  for (int ip = 1; ip <= 8; ip++)
+    {
+      if (z[ip] == 0)
+	continue;
+      recoTrack tp;
+      tp.clear();
+      // for (auto x = a_tk.points().begin(); x != a_tk.points().end(); x++)
+      // 	{
+      // 	  recoPoint *p = (*x);
+      // 	  //	  std::cout<<p->X()<<" "<<p->Y()<<" "<<p->Z()<<" A_TK"<<p->plan()<<std::endl;
+      // 	}
+      for (auto x = a_tk.points().begin(); x != a_tk.points().end(); x++)
+	{
+	  recoPoint *p = (*x);
+	  if (p->plan() == ip)
+	    continue;
+	  //std::cout<<p->X()<<" "<<p->Y()<<" "<<p->Z()<<" TP_TK"<<p->plan()<<std::endl;
+	  //fflush(stdout);
+
+	  tp.addPoint(p);
+	}
+      if (tp.size() < 3)
+	continue;
+      tp.regression();
+      tp.calculateChi2();
+      
+
+      if (tp.pchi2() < 0.01)
+	continue;
+      /*
+      if (ip == 1 && !(tp.planUsed(2) && tp.planUsed(3)))
+	continue;
+      if (ip == 1 && !(tp.planUsed(2) && tp.planUsed(8)))
+	continue;
+
+      if (ip == 8 && !(tp.planUsed(6) && tp.planUsed(7)))
+	continue;
+      if (ip == 8 && !(tp.planUsed(6) && tp.planUsed(1)))
+	continue;
+      if (ip > 1 && ip < 8 && !(tp.planUsed(ip - 1) && tp.planUsed(ip + 1)))
+	continue;
+      if (ip > 1 && ip < 8 && !(tp.planUsed(1) && tp.planUsed(8)))
+	continue;
+      */
+      if (tp.size()<4)
+	continue;
+      ROOT::Math::XYZPoint pe = tp.extrapolate(z[ip]);
+
+      if (pe.X() < -27.648 + 3)
+	continue;
+      if (pe.X() > 27.648 - 3)
+	continue;
+      if (pe.X() < 0)
+	{
+	  if (pe.Y() < -1. * T30 * pe.X() + 3)
+	    continue;
+	  if (pe.Y() > T30 * pe.X() + 55.296 - 3)
+	    continue;
+	}
+      else
+	{
+	  if (pe.Y() < T30 * pe.X() + 3)
+	    continue;
+	  if (pe.Y() > -1. * T30 * pe.X() + 55.296 - 3)
+	    continue;
+	}
+      //std::cout<<"PLAN "<<ip<<" "<<tp<<std::endl;
+      //getchar();
+
+
+      std::stringstream splane;
+      splane << "/gric/EFF" << ip << "_G"<<togric[ip]<<"/";
+      TH2 *hext = _rh->GetTH2(splane.str() + "XYext");
+      TH2 *hfop = _rh->GetTH2(splane.str() + "XYfound");
+
+      TH1 *hdistx = _rh->GetTH1(splane.str() + "DX");
+      TH1 *hdisty = _rh->GetTH1(splane.str() + "DY");
+      TH1 *hax = _rh->GetTH1(splane.str() + "AX");
+      TH1 *hay = _rh->GetTH1(splane.str() + "AY");
+      TH1 *hpc2 = _rh->GetTH1(splane.str() + "PChi2");
+      if (hdistx == NULL)
+	{
+	  hpc2 = _rh->BookTH1(splane.str() + "PChi2", 1000, 0., 1.);
+	  hax = _rh->BookTH1(splane.str() + "AX", 1000, -1., 1.);
+	  hay = _rh->BookTH1(splane.str() + "AY", 1000, -1., 1.);
+	  hdistx = _rh->BookTH1(splane.str() + "DX", 100, -10., 10.);
+	  hdisty = _rh->BookTH1(splane.str() + "DY", 100, -10., 10.);
+	  hext = _rh->BookTH2(splane.str() + "XYext", 32, -30., 30., 32, 0., 60.);
+	  hfop = _rh->BookTH2(splane.str() + "XYfound", 32, -30., 30., 32, 0., 60.);
+	}
+      hpc2->Fill(tp.pchi2());
+      hax->Fill(tp.dir().X());
+      hay->Fill(tp.dir().Y());
+
+      //if ( abs(tp.dir().X())>thcut || abs(tp.dir().Y())>thcut) continue;
+      hext->Fill(pe.X(), pe.Y());
+
+      for (auto x = _vPoints.begin(); x != _vPoints.end(); x++)
+	{
+	  if (x->plan() != ip)
+	    continue;
+	  ROOT::Math::XYZPoint &p = (*x);
+	  ROOT::Math::XYZVector d = p - pe;
+	  float dx = d.X();
+	  float dy = d.Y();
+	  //std::cout<<p1.X()<<" "<<p1.Y()<<" "<<p1.Z()<<std::endl;
+	  double dist = sqrt(d.Mag2());
+	  //std::cout<<dist<<" "<<hdistx->GetEntries()<<std::endl;
+	  hdistx->Fill(dx);
+	  //std::cout<<dx<<" "<<dy<<" "<<hdistx->GetEntries()<<std::endl;
+	  hdisty->Fill(dy);
+	  if (dist < 5.)
+	    {
+	      hfop->Fill(pe.X(), pe.Y());
+	      break;
+	    }
+	}
+    }
 
 }
 void binaryreader::kickSearch()
@@ -453,7 +665,7 @@ void binaryreader::kickSearch()
   //std::cout << p1.X() << ":" << p1.Y() << ":" << p1.Z() << std::endl;
   //std::cout << p2.X() << ":" << p2.Y() << ":" << p2.Z() << std::endl;
   float zcross = (p1.Z() + p2.Z()) / 2.;
-		  //printf("%x %x %x \n",hcpa,hcpai,hcpao);
+  //printf("%x %x %x \n",hcpa,hcpai,hcpao);
   //std::cout << "LA DISTANCE " << adist << " Z CROSS " << zcross << std::endl;
   if (zcross < z[5] + 1 || zcross > z[4] - 1)
     return;
@@ -493,50 +705,50 @@ void binaryreader::kickSearch()
 void binaryreader::drawHits()
 {
   
-      TH2 *hzx = _rh->GetTH2("ZX");
-      TH2 *hzy = _rh->GetTH2("ZY");
-      if (hzx == NULL)
-	{
-	  hzx = _rh->BookTH2("ZX", 100., 0., 400., 120., -40., 40.);
-	  hzy = _rh->BookTH2("ZY", 100., 0., 400., 180., 0., 90.);
-	}
-      hzx->Reset();
-      hzy->Reset();
+  TH2 *hzx = _rh->GetTH2("ZX");
+  TH2 *hzy = _rh->GetTH2("ZY");
+  if (hzx == NULL)
+    {
+      hzx = _rh->BookTH2("ZX", 100., 0., 400., 120., -40., 40.);
+      hzy = _rh->BookTH2("ZY", 100., 0., 400., 180., 0., 90.);
+    }
+  hzx->Reset();
+  hzy->Reset();
 
-      for (auto x:_vPoints)
-	{
-	  hzx->Fill(x.Z(),x.X());
-	  hzy->Fill(x.Z(),x.Y());
-	  fprintf(stderr,"%f %f %f \n",x.Z(),x.X(),x.Y());
-	}
-      if (TCHits == NULL)
-	{
-	  TCHits = new TCanvas("TCHits", "tChits1", 900, 900);
-	  TCHits->Modified();
-	  TCHits->Draw();
-	  TCHits->Divide(1, 2);
-	}
-      TCHits->cd(1);
-      hzx->SetMarkerStyle(25);
-      hzx->SetMarkerColor(kRed);
-      hzx->Draw("P");
-      if (top_tk.size()>1) top_tk.linex()->Draw("SAME");
-      if (bot_tk.size()>1) bot_tk.linex()->Draw("SAME");
+  for (auto x:_vPoints)
+    {
+      hzx->Fill(x.Z(),x.X());
+      hzy->Fill(x.Z(),x.Y());
+      fprintf(stderr,"%d %d %d %f %f %f \n",_run,_event,_bxdif,x.Z(),x.X(),x.Y());
+    }
+  if (TCHits == NULL)
+    {
+      TCHits = new TCanvas("TCHits", "tChits1", 900, 900);
       TCHits->Modified();
       TCHits->Draw();
-      TCHits->Update();
-      TCHits->cd(2);
-      hzy->SetMarkerStyle(22);
-      hzy->SetMarkerColor(kGreen);
-      hzy->Draw("P");
-      if (top_tk.size()>1) top_tk.liney()->Draw("SAME");
-      if (bot_tk.size()>1) bot_tk.liney()->Draw("SAME");
-      TCHits->Modified();
-      TCHits->Draw();
-      TCHits->Update();
-      ::usleep(100);
-      TCHits->Update();
-      getchar();
+      TCHits->Divide(1, 2);
+    }
+  TCHits->cd(1);
+  hzx->SetMarkerStyle(25);
+  hzx->SetMarkerColor(kRed);
+  hzx->Draw("P");
+  if (top_tk.size()>1) top_tk.linex()->Draw("SAME");
+  if (bot_tk.size()>1) bot_tk.linex()->Draw("SAME");
+  TCHits->Modified();
+  TCHits->Draw();
+  TCHits->Update();
+  TCHits->cd(2);
+  hzy->SetMarkerStyle(22);
+  hzy->SetMarkerColor(kGreen);
+  hzy->Draw("P");
+  if (top_tk.size()>1) top_tk.liney()->Draw("SAME");
+  if (bot_tk.size()>1) bot_tk.liney()->Draw("SAME");
+  TCHits->Modified();
+  TCHits->Draw();
+  TCHits->Update();
+  ::usleep(100);
+  TCHits->Update();
+  getchar();
     
 
   
@@ -1594,6 +1806,8 @@ void binaryreader::buildPlaneHits(rbEvent *e, uint32_t plane, std::vector<uint32
   std::vector<float> sx_v;
   std::vector<float> sx_w;
 
+#define MAXHITONLY
+#ifdef MAXHITONLY
   if (ub2.count() != 0)
     ub = ub2;
   if (vb2.count() != 0)
@@ -1608,6 +1822,7 @@ void binaryreader::buildPlaneHits(rbEvent *e, uint32_t plane, std::vector<uint32
   if (wb3.count() != 0)
     wb = wb3;
   /*  */
+#endif
   if (ub.count() > 0)
     {
       int f = 1000, l = -1;

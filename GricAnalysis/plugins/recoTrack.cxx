@@ -18,7 +18,8 @@ void recoTrack::clear()
 
 void recoTrack::addPoint(recoPoint* p)
 {
-
+  //std::cout<<p->X()<<" "<<p->Y()<<" "<<p->Z()<<" RT "<<p->plan()<<std::endl;
+  //fflush(stdout);
   //  Check distance
   if (_dir.X()!=0 && _dir.Y()!=0)
     {
@@ -43,15 +44,17 @@ void recoTrack::addPoint(recoPoint* p)
     }
   _points.push_back(p);
   _valid=(_points.size()>=2);
-
+  if (!_valid) return;
   float z0=999999.,zm=-999999.;
+  _plh.reset();
   for (auto ip=_points.begin();ip!=_points.end();ip++)
     {
       if ((*ip)->Z()<z0) z0=(*ip)->Z();
       if ((*ip)->Z()>zm) zm=(*ip)->Z();
+      _plh.set((*ip)->plan());
     }
   _valid=(zm-z0)>1.;
-  _plh.set(p->plan());
+
   this->regression();
 }
 
