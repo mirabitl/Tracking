@@ -1,0 +1,39 @@
+{
+    "files":
+    [
+[1373,"/home/acqilc/PULSALYS/SMM_240920_174832_B0_R1373.dat"],
+[1373,"/home/acqilc/PULSALYS/SMM_240920_183241_B0_R1373.dat"],
+[1373,"/home/acqilc/PULSALYS/SMM_240920_201603_B0_R1373.dat"],
+[1373,"/home/acqilc/PULSALYS/SMM_240920_220816_B0_R1373.dat"],
+[1373,"/home/acqilc/PULSALYS/SMM_250920_000644_B0_R1373.dat"],
+[1373,"/home/acqilc/PULSALYS/SMM_250920_021041_B0_R1373.dat"],
+[1373,"/home/acqilc/PULSALYS/SMM_250920_043117_B0_R1373.dat"]
+
+    ],
+    "general":
+    {
+	"directory":"/opt/TdcAnalysis/Histos/InTime",
+	"noise":0,
+	"display":0,
+	"trigger":0,
+	"coinc":1,
+	"minplan":4,
+	"dcut":5,
+	"minbot":2,
+	"pcut":0.1,
+	"thetacut":3.0,
+	"cpacut":2.
+    },
+    "setup":
+    [
+	{"num":1,"name":"ch9_p1_hv0","id":7,"z":274.5,"x":-0.14,"y":0.15},
+	{"num":2,"name":"ch8_p2_hv1","id":8,"z":252.5,"x":0.06,"y":-0.06},
+	{"num":3,"name":"ch7_p3_hv2","id":5,"z":231,"x":0.14,"y":-0.041},
+	{"num":4,"name":"ch5_p4_hv3","id":4,"z":209,"x":-0.07,"y":0.054},
+	{"num":5,"name":"ch1_p5_hv4","id":3,"z":126,"x":0.0,"y":0.07},
+	{"num":6,"name":"ch2_p6_hv5","id":6,"z":104,"x":-0.11,"y":0.25},
+	{"num":7,"name":"ch3_p7_hv6","id":2,"z":82,"x":0.08,"y":-0.10},
+	{"num":8,"name":"ch4_p8_hv7","id":1,"z":60,"x":0.,"y":-0.4}
+    ]
+    
+}

@@ -1,0 +1,2 @@
+export LD_LIBRARY_PATH=./lib/:/opt/dhcal/lib:/opt/dhcal/root/lib:./lib/:/opt/dhcal/lib:/opt/dhcal/root/lib:/opt/dhcal/root/lib: 
+bin/tdcr -r752192 -d/data/local/FE1PR2/ -g/opt/TdcAnalysis/gifpp_geom.json  -p imadreader
