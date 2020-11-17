@@ -297,8 +297,8 @@ void tdcrb::Read()
 
 void tdcrb::read()
 {
-  
-  zdaq::buffer b(0x100000);
+  uint8_t mbuf[0x20000];
+  zdaq::buffer b(0x20000);
   int last=-1;
   uint64_t _eventChannel[4096*8];
   //  std::vector<lydaq::TdcChannel> _vAll;
@@ -316,8 +316,8 @@ void tdcrb::read()
 
 	  
 	  int ier=::read(_fdIn,&_event,sizeof(uint32_t));
-	  _nread++;
-	  if (ier<0 || last==_event)
+	  _nread++; 
+	  if (ier<0 || last==_event && _event!=_run)
 	    {
 	      printf("Cannot read Event anymore %d %d %d \n ",ier,last,_event);return;
 	    }
@@ -326,7 +326,7 @@ void tdcrb::read()
 
 	  //else
 	  last=_event;
-	  if (_event%100==0)
+	  //if (_event%100==0)
 	    INFO_PRINTF("Event read %d \n",_event);
       
 	  ier=::read(_fdIn,&theNumberOfDIF,sizeof(uint32_t));
@@ -338,14 +338,7 @@ void tdcrb::read()
 	    if (_event%100==0)
 	      INFO_PRINTF("================> Event %d Number of DIF found %d \n",_event,theNumberOfDIF);
 	  //INFO_PRINTF("================> Event %d Number of DIF found %d \n",_event,theNumberOfDIF);
-	  uint32_t difFound[256];
-	  memset(difFound,0,256*sizeof(uint32_t));
-	  uint32_t trigFound[256];
-	  memset(trigFound,0,256*sizeof(uint32_t));
-	  //	  _analyzer->clear();
-	  
-	  memset(_eventChannel,0,4096*8*sizeof(uint64_t));
-	  _eventChannels=0;
+	  if (theNumberOfDIF==0) return;
 	  bool _initialised=false;
 	  bool analyzeIt=true;
 	  for (uint32_t idif=0;idif<theNumberOfDIF;idif++) 
@@ -363,46 +356,55 @@ void tdcrb::read()
 	      else
 		if (_event%100==0)
 		  DEBUG_PRINTF("\t DIF size %d \n",bsize);
-	  
+
 	      ier=::read(_fdIn,b.ptr(),bsize);
+	      //ier=::read(_fdIn,mbuf,bsize);
 	      if (ier<0)
 		{
 		  printf("Cannot read anymore Read data %d \n ",ier);return;
 		}
+	      //printf("IER %d bsize %d  \n",ier,bsize);	  
 	      if (_nread<(_nrfirst)) {analyzeIt=false;continue;}
+	      
+	      //continue;
 	      b.setPayloadSize(bsize-(3*sizeof(uint32_t)+sizeof(uint64_t)));
 	      b.uncompress();
+
+
 	      memcpy(&_buf[_idx], b.payload(),b.payloadSize());
 	      b.setDetectorId(b.detectorId()&0xFF);
 	      INFO_PRINTF("\t \t %d %x %d %x %d %d %d\n",b.detectorId()&0XFF,b.dataSourceId(),b.eventId(),b.bxId(),b.payloadSize(),bsize,_idx);
 	      
+	      
 	      _bxId=b.bxId();
 	      if (_bxId0==0) _bxId0=_bxId;
 	      uint32_t _detId=b.detectorId()&0xFF;
-	      //DEBUG_PRINTF("DETID %d \n",_detId);
+	      DEBUG_PRINTF("DETID %d \n",_detId);
 	      // getchar();
+	      _difId=b.dataSourceId();
+
 	      if (_detId==255)
 		{
-		  uint32_t* buf=(uint32_t*) b.payload();
+		  uint32_t* ibuf=(uint32_t*) b.payload();
 		  printf("NEW RUN %d \n",_event);
 		  _run=_event;
 
 
 		  for (int i=0;i<b.payloadSize()/4;i++)
 		    {
-		      printf("%d ",buf[i]);
+		      printf("%d ",ibuf[i]);
 		    }
-		  _difId=b.dataSourceId();
-		  _runType=buf[0];
+		  _runType=ibuf[0];
 		  if (_runType==1)
-		    _dacSet=buf[1];
+		    _dacSet=ibuf[1];
 		  if (_runType==2)
-		    _vthSet=buf[1];
+		    _vthSet=ibuf[1];
 		  printf("\n Run type %d DAC set %d VTH set %d \n",_runType,_dacSet,_vthSet);
-		  _theEvent.setCalibrationInfos(_runType,_vthSet);
+	
 		  // getchar();
 
 		}
+	      //continue;
 	      if (_detId==140 || _detId==160)
 		{
 		  uint32_t* ibuf=(uint32_t*) b.payload();
@@ -417,7 +419,7 @@ void tdcrb::read()
 		    }
 		  */
 		  uint32_t len=(bb[1]<<8)|(bb[2]);
-		  //printf("Length= %d %.2x \n",len,bb[len-1]);
+		  //printf("%d Length= %d %.2x \n",_difId,len,bb[len-1]);
 		  uint16_t* sbuf=(uint16_t*)&bb[1];
 		  //		    itemp[0]=_event;
 		  //
@@ -432,10 +434,13 @@ void tdcrb::read()
 		      _gtc=b.bxId();
 		      _initialised=true;
 		    }
+		  _theEvent.setCalibrationInfos(_runType,_vthSet);
+
 		  _difId=(b.dataSourceId()>>8)&0xFF;
 		  _theEvent.setFrameCount(_difId,(len-26)/20);
 		  uint8_t* fb=&bb[26];
 		  uint8_t* efb=_theEvent.frameBuffer();
+
 		  for (int ip=0;ip<_theEvent.frameCount(_difId);ip++)
 		    {
 		      uint32_t iptr=_theEvent.iPtr(_difId,ip);

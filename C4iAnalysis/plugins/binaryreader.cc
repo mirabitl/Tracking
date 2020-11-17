@@ -95,7 +95,7 @@ void binaryreader::loadParameters(Json::Value params)
 }
 void binaryreader::end(uint32_t run)
 {
-  this->closeTrees();
+  //this->closeTrees();
   _started = false;
 }
 
@@ -810,10 +810,11 @@ void binaryreader::processEvent(rbEvent *e)
   uint8_t u[16], v[16], w[16];
   if (!_started)
     return;
-  //printf("BR => %d %d %d \n",e->run(),e->event(),e->gtc());
+  printf("BR => %d %d %d %d \n",e->run(),e->event(),e->gtc(),e->seuil());
   _event = e->gtc();
   _run = e->run();
   _gtc=e->gtc();
+  
   if (e->seuil()!=0)
     this->scurveAnalysis(e);
 
@@ -2726,6 +2727,7 @@ void binaryreader::scurveAnalysis(rbEvent *e)
 		    srpc<<sraw1.str()<<"Padc"<<k;
 
 		    TH1* hpc= _rh->GetTH1(srpc.str());
+		    //std::cout<<srpc.str()<<std::endl;
 		    hpc->Fill(e->seuil()*1.);
 
 		  }
