@@ -326,7 +326,7 @@ void tdcrb::read()
 
 	  //else
 	  last=_event;
-	  //if (_event%100==0)
+	  if (_event%100==0)
 	    INFO_PRINTF("Event read %d \n",_event);
       
 	  ier=::read(_fdIn,&theNumberOfDIF,sizeof(uint32_t));
@@ -373,7 +373,7 @@ void tdcrb::read()
 
 	      memcpy(&_buf[_idx], b.payload(),b.payloadSize());
 	      b.setDetectorId(b.detectorId()&0xFF);
-	      INFO_PRINTF("\t \t %d %x %d %x %d %d %d\n",b.detectorId()&0XFF,b.dataSourceId(),b.eventId(),b.bxId(),b.payloadSize(),bsize,_idx);
+	      DEBUG_PRINTF("\t \t %d %x %d %x %d %d %d\n",b.detectorId()&0XFF,b.dataSourceId(),b.eventId(),b.bxId(),b.payloadSize(),bsize,_idx);
 	      
 	      
 	      _bxId=b.bxId();
@@ -430,8 +430,9 @@ void tdcrb::read()
 		  //  itemp[6]=length;
 		  if (!_initialised)
 		    {
-		      _theEvent.init(_run,_event,b.bxId(),0);
-		      _gtc=b.bxId();
+		      //printf("Initialising %d %d %d %ld\n",_run,_event,b.eventId(),b.bxId());
+		      _theEvent.init(_run,_event,b.eventId(),b.bxId());
+		      _gtc=b.eventId();
 		      _initialised=true;
 		    }
 		  _theEvent.setCalibrationInfos(_runType,_vthSet);
