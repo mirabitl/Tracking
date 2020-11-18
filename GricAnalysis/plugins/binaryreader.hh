@@ -60,6 +60,8 @@ class binaryreader : public rbProcessor
     int TPrincipalComponents(double result[21],float zmin,float zmax);
     void createTrees(std::string s);
     void closeTrees();
+    void scurveAnalysis(rbEvent *e);
+
   private:
     uint32_t _run,_event,_totalSize,_gtc;
     int32_t _fdOut;

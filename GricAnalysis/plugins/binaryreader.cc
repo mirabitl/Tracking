@@ -814,7 +814,10 @@ void binaryreader::processEvent(rbEvent *e)
   _event = e->gtc();
   _run = e->run();
   _gtc=e->gtc();
-  this->fillTimeMap(e);
+  if (e->seuil()!=0)
+    this->scurveAnalysis(e);
+  else
+    this->fillTimeMap(e);
   return;
 
   _timeMap.clear();
@@ -2688,6 +2691,53 @@ void binaryreader::closeTrees()
       treeFile_->ls();
       treeFile_->Close();
     }
+}
+void binaryreader::scurveAnalysis(rbEvent *e)
+{
+
+  if (e->seuil()==0) return;
+  //std::cout<<"Event "<<_event<<" GTC"<<_gtc<<" Vth set "<<e->seuil()<<std::endl;
+  //fflush(stdout);
+  for (int id = 0; id < MAXDIF; id++)
+    if (e->frameCount(id))
+      {
+	std::stringstream sraw1;
+	sraw1 << "/gric/SCURVE" << std::hex << id << std::dec << "/";
+	
+	TH1 *hp1 = _rh->GetTH1(sraw1.str() + "Padc1");
+	if (hp1 == NULL)
+	  {
+	    for (int i=0;i<64;i++)
+	      {
+		std::stringstream srpc("");
+		srpc<<sraw1.str()<<"Padc"<<i;
+		TH1* hpc = _rh->BookTH1(srpc.str(),1024,0.,1024);
+
+	      }
+	  }
+
+	for (int j = 0; j < e->frameCount(id); j++)
+	  {
+	    uint32_t idx = e->iPtr(id, j);
+
+	    if (e->bcid(idx) < 4)
+	      continue;
+	    for (int k = 0; k < 64; k++)
+	      {
+		if (e->pad0(idx, k) || e->pad1(idx, k))
+		  {
+		    std::stringstream srpc("");
+		    srpc<<sraw1.str()<<"Padc"<<k;
+
+		    TH1* hpc= _rh->GetTH1(srpc.str());
+		    //std::cout<<srpc.str()<<std::endl;
+		    hpc->Fill(e->seuil()*1.);
+
+		  }
+	      }
+	  }
+      }
+
 }
 
 extern "C"

@@ -422,6 +422,8 @@ void tdcrb::read()
 		      _gtc=b.bxId();
 		      _initialised=true;
 		    }
+		  _theEvent.setCalibrationInfos(_runType,_vthSet);
+
 		  _difId=(b.dataSourceId()>>8)&0xFF;
 		  _theEvent.setFrameCount(_difId,(ntohs(sbuf[0])-16)/20);
 		  uint8_t* fb=&bb[15];
