@@ -607,7 +607,7 @@ def calceff(run,tdc,strip=71):
 
   val = raw_input()
 
-def fitped(run,tdc,vthmin,vthmax,ncha=64):
+def fitped(run,tdc,vthmin,vthmax,ncha=64,gain=128):
   rb=1
   fi=1
   la=ncha+1
@@ -615,7 +615,7 @@ def fitped(run,tdc,vthmin,vthmax,ncha=64):
   #    fi=ncha+1
   #    la=2*ncha+1
   f82=TFile("/tmp/histo%d_0.root" % run);
-  f82.cd("/gric/SCURVE%d" % (tdc));
+  f82.cd("/gric/B10SCURVE%d" % (tdc));
   c1=TCanvas();
   #c2=TCanvas("c2","Test",1400,900);
   #c2.cd()
@@ -625,6 +625,7 @@ def fitped(run,tdc,vthmin,vthmax,ncha=64):
   #val = raw_input()
   #c2.Draw()
   fout=open("summary_pedestal_%d_tdc%d.txt" % (run,tdc),"w");
+  fcsv=open("resume.csv","a")
   fout.write("+--+-----+-----+-----+ \n");
   gStyle.SetOptFit();
   hmean=TH1F("hmean","Summary %d %d " %(run,tdc),vthmax-vthmin+1,vthmin,vthmax)
@@ -636,7 +637,7 @@ def fitped(run,tdc,vthmin,vthmax,ncha=64):
   for ip in range(la-1,fi,-1):
       #c2.cd()
       hs=None
-      hs=f82.Get("/gric/SCURVE%d/Padc%d" % (tdc,ip));
+      hs=f82.Get("/gric/B10SCURVE%d/Padc%d" % (tdc,ip));
       if (hs==None):
           continue;
       if (hs.GetEntries()==0):
@@ -673,10 +674,10 @@ def fitped(run,tdc,vthmin,vthmax,ncha=64):
   c1.SaveAs("Run%d_AllStrip%d.png" % (run,tdc));
 
   val = raw_input()
-      
+  turnon=[]    
   for ip in range(fi,la):
       #c2.cd()
-      hs=f82.Get("/gric/SCURVE%d/Padc%d" % (tdc,ip));
+      hs=f82.Get("/gric/B10SCURVE%d/Padc%d" % (tdc,ip));
       if (hs==None):
           continue;
       if (hs.GetEntries()==0):
@@ -713,9 +714,10 @@ def fitped(run,tdc,vthmin,vthmax,ncha=64):
 
       hder.Draw()
       c1.Update()
-      val1 = raw_input()
-
-      print "heho ",val1,rped,hder.GetMean()
+      #val1 = raw_input()
+      val1=""
+      turnon.append(hder.GetMean())
+      print "heho ",rped,hder.GetMean()
       rped=hder.GetMean()
       if (len(val1)>0):
           rped=float(val1)
@@ -732,12 +734,19 @@ def fitped(run,tdc,vthmin,vthmax,ncha=64):
       hpmean.SetBinContent(ip+1,rped);
       hpnoise.SetBinContent(ip+1,scfit.GetParameter(2))
       #c1.SaveAs("Run%d_Strip%d.root" % (run,ip));
-      val = raw_input()
+      #val = raw_input()
 
       #hder.Draw()
       
       #c1.Update()
       #val = raw_input()
+  #print turnon
+  s="%d,%d," % (run,gain)
+  for a in turnon:
+    s=s+"%d," % a
+  s=s+"\n"
+  fcsv.write(s)
+  fcsv.close()
   c1.cd()
   hmean.Draw()
   hpmean.GetYaxis().SetRangeUser(vthmin,vthmax)

@@ -2686,10 +2686,13 @@ void binaryreader::createTrees(std::string s)
 }
 void binaryreader::closeTrees()
 {
+  if (tEvents_!=0)
+    {
   treeFile_->cd();
   tEvents_->Write();
   treeFile_->ls();
   treeFile_->Close();
+    }
 }
 void binaryreader::scurveAnalysis(rbEvent *e)
 {
@@ -2701,7 +2704,11 @@ void binaryreader::scurveAnalysis(rbEvent *e)
     if (e->frameCount(id))
       {
 	std::stringstream sraw1;
-	sraw1 << "/gric/SCURVE" << std::hex << id << std::dec << "/";
+	std::stringstream sraw2;
+	std::stringstream sraw3;
+	sraw1 << "/gric/B01SCURVE" << std::hex << id << std::dec << "/";
+	sraw2 << "/gric/B10SCURVE" << std::hex << id << std::dec << "/";
+	sraw3 << "/gric/B11SCURVE" << std::hex << id << std::dec << "/";
 	
 	TH1 *hp1 = _rh->GetTH1(sraw1.str() + "Padc1");
 	if (hp1 == NULL)
@@ -2711,7 +2718,12 @@ void binaryreader::scurveAnalysis(rbEvent *e)
 		std::stringstream srpc("");
 		srpc<<sraw1.str()<<"Padc"<<i;
 		TH1* hpc = _rh->BookTH1(srpc.str(),1024,0.,1024);
-
+		srpc.str( std::string() );srpc.clear();
+		srpc<<sraw2.str()<<"Padc"<<i;
+		TH1* hpc2 = _rh->BookTH1(srpc.str(),1024,0.,1024);
+		srpc.str( std::string() );srpc.clear();
+		srpc<<sraw3.str()<<"Padc"<<i;
+		TH1* hpc3 = _rh->BookTH1(srpc.str(),1024,0.,1024);
 	      }
 	  }
 
@@ -2723,10 +2735,30 @@ void binaryreader::scurveAnalysis(rbEvent *e)
 	      continue;
 	    for (int k = 0; k < 64; k++)
 	      {
-		if (e->pad0(idx, k) || e->pad1(idx, k))
+		if (e->pad0(idx, k) && !e->pad1(idx,k) )
 		  {
 		    std::stringstream srpc("");
 		    srpc<<sraw1.str()<<"Padc"<<k;
+
+		    TH1* hpc= _rh->GetTH1(srpc.str());
+		    //std::cout<<srpc.str()<<std::endl;
+		    hpc->Fill(e->seuil()*1.);
+
+		  }
+		if (e->pad1(idx, k) && !e->pad0(idx,k))
+		  {
+		    std::stringstream srpc("");
+		    srpc<<sraw2.str()<<"Padc"<<k;
+
+		    TH1* hpc= _rh->GetTH1(srpc.str());
+		    //std::cout<<srpc.str()<<std::endl;
+		    hpc->Fill(e->seuil()*1.);
+
+		  }
+		if (e->pad0(idx, k) && e->pad1(idx, k))
+		  {
+		    std::stringstream srpc("");
+		    srpc<<sraw3.str()<<"Padc"<<k;
 
 		    TH1* hpc= _rh->GetTH1(srpc.str());
 		    //std::cout<<srpc.str()<<std::endl;
