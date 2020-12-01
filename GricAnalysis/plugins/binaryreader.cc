@@ -288,7 +288,7 @@ void binaryreader::fillTimeMap(rbEvent *e)
       for (int i = 1; i <= 8; i++)
 	buildPlaneHits(e, i, x.second);
       if (_hplanes.count()<nplanesmin) continue;
-      this->fillTracks();
+      if (e->gtc()<160000) this->fillTracks();
       uint64_t ltopbs=(_hplanes.to_ulong()&30);
       uint64_t lbotbs=(_hplanes.to_ulong()&480);
       _bsplanes= _hplanes.to_ulong();

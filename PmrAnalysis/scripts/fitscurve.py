@@ -607,28 +607,93 @@ def calceff(run,tdc,strip=71):
 
   val = raw_input()
 
-def fitped(run,tdc,vthmi,vthma,ncha=64,gain=128):
+def fitped(run,tdc,vthmin,vthmax,asic=1,ncha=24,rising=True,old=defped):
   rb=1
-  fi=0
-  la=ncha
+  fi=1
+  la=ncha+1
   #if (asic==2):
   #    fi=ncha+1
   #    la=2*ncha+1
-  f82=TFile("/tmp/histo%d_0.root" % run);
-  f82.cd("/gric/B10SCURVE%d" % (tdc));
-  hs=f82.Get("/gric/B10SCURVE%d/Padc%d" % (tdc,2));
-  ifirst=0;ilast=0
-  for i in range(1,hs.GetNbinsX()):
-      if (hs.GetBinContent(i)!=0 and ifirst==0):
-          ifirst=i
-      if (hs.GetBinContent(i)!=0):
-          ilast=i
-  if (ilast>ifirst+30):
-      vthmax=ilast+150
-      vthmin=ifirst+10
-  else:
-      vthmin=vthmi
-      vthmax=vthma
+  asicmap={}
+  for i in {1,2}:
+      asicmap[i]=[]
+      for j in range(49):
+          asicmap[i].append(0)
+
+  asicmap[1][1]=30
+  asicmap[1][2]=28
+  asicmap[1][3]=26
+  asicmap[1][4]=24
+  asicmap[1][5]=23
+  asicmap[1][6]=22
+  asicmap[1][7]=21
+  asicmap[1][8]=20
+  asicmap[1][9]=19
+  asicmap[1][10]=18
+  asicmap[1][11]=17
+  asicmap[1][12]=16
+  asicmap[1][13]=15
+  asicmap[1][14]=14
+  asicmap[1][15]=13
+  asicmap[1][16]=12
+  asicmap[1][17]=11
+  asicmap[1][18]=10
+  asicmap[1][19]=9
+  asicmap[1][20]=8
+  asicmap[1][21]=7
+  asicmap[1][22]=6
+  asicmap[1][23]=5
+  asicmap[1][24]=4
+  asicmap[2][25]=30
+  asicmap[2][26]=28
+  asicmap[2][27]=26
+  asicmap[2][28]=24
+  asicmap[2][29]=23
+  asicmap[2][30]=22
+  asicmap[2][31]=21
+  asicmap[2][32]=20
+  asicmap[2][33]=19
+  asicmap[2][34]=18
+  asicmap[2][35]=17
+  asicmap[2][36]=16
+  asicmap[2][37]=15
+  asicmap[2][38]=14
+  asicmap[2][39]=13
+  asicmap[2][40]=12
+  asicmap[2][41]=11
+  asicmap[2][42]=10
+  asicmap[2][43]=9
+  asicmap[2][44]=8
+  asicmap[2][45]=7
+  asicmap[2][46]=6
+  asicmap[2][47]=5
+  asicmap[2][48]=4
+
+
+  asicmap={}
+  for i in {1,2}:
+    asicmap[i]=[]
+    for j in range(50):
+      asicmap[i].append(0)
+  f=open("/opt/TdcAnalysis/feb_mapping.json")
+  s=json.loads(f.read())
+  prh=s["v1_56"]["FlexTop"]["High"]["PR"]
+  prl=s["v1_56"]["FlexTop"]["Low"]["PR"]
+  tdch0=s["v1_56"]["FlexTop"]["High"]["TDC"][0]
+  tdch1=s["v1_56"]["FlexTop"]["High"]["TDC"][1]
+  tdcl0=s["v1_56"]["FlexTop"]["Low"]["TDC"][0]
+  tdcl1=s["v1_56"]["FlexTop"]["Low"]["TDC"][1]
+  for i in range(12):
+      asicmap[1][tdch0[i]]=prh[i]
+      asicmap[1][tdcl0[i]]=prl[i]
+      asicmap[2][tdcl1[i]]=prl[i]
+      asicmap[2][tdch1[i]]=prh[i]
+  print asicmap
+  ped=[]
+  for i in range(32):
+    ped.append(0)
+  f82=TFile("Histos/InTime/histo%d_0.root" % run);
+  f82.cd("/run%d/TDC%d" % (run,tdc));
   c1=TCanvas();
   #c2=TCanvas("c2","Test",1400,900);
   #c2.cd()
@@ -638,7 +703,6 @@ def fitped(run,tdc,vthmi,vthma,ncha=64,gain=128):
   #val = raw_input()
   #c2.Draw()
   fout=open("summary_pedestal_%d_tdc%d.txt" % (run,tdc),"w");
-  fcsv=open("resume.csv","a")
   fout.write("+--+-----+-----+-----+ \n");
   gStyle.SetOptFit();
   hmean=TH1F("hmean","Summary %d %d " %(run,tdc),vthmax-vthmin+1,vthmin,vthmax)
@@ -646,19 +710,22 @@ def fitped(run,tdc,vthmi,vthma,ncha=64,gain=128):
   hpmean=TH1F("hpmean","Summary %d %d " %(run,tdc),2*ncha,0.,2.*ncha);
   hpnoise=TH1F("hpnoise","Summary noise %d %d " %(run,tdc),2*ncha,0.,2.*ncha);
   scfit=TF1("scfit","[0]*TMath::Erfc((x-[1])/[2])",vthmin+1,vthmax);
-  tped=[]
-  for i in range(0,63):
-      tped.append(0)
+  
   for ip in range(la-1,fi,-1):
       #c2.cd()
+      if (asicmap[asic][ip]==0):
+          continue;
       hs=None
-      hs=f82.Get("/gric/B10SCURVE%d/Padc%d" % (tdc,ip));
+      if (rising):
+          hs=f82.Get("/run%d/TDC%d/vthc%d" % (run,tdc,ip));
+      else:
+          hs=f82.Get("/run%d/TDC%d/vthd%d" % (run,tdc,ip));
       if (hs==None):
           continue;
       if (hs.GetEntries()==0):
         continue
       print ip,fi,la," found"
-      hs.Scale(1./1.);
+      hs.Scale(1./2700.);
       nmax=0
       for i in range(1,hs.GetNbinsX()):
         if (hs.GetBinContent(i)==0):
@@ -685,20 +752,28 @@ def fitped(run,tdc,vthmi,vthma,ncha=64,gain=128):
       else:
         hs.Draw("SAME")
   c1.Update()
-  c1.SaveAs("Run%d_AllStrip%d.root" % (run,tdc));
-  c1.SaveAs("Run%d_AllStrip%d.png" % (run,tdc));
+  c1.SaveAs("Run%d_AllStrip%d_%d.root" % (run,tdc,asic));
+  c1.SaveAs("Run%d_AllStrip%d_%d.png" % (run,tdc,asic));
 
   val = raw_input()
-  turnon=[]    
+      
   for ip in range(fi,la):
       #c2.cd()
-      hs=f82.Get("/gric/B10SCURVE%d/Padc%d" % (tdc,ip));
+      if (asicmap[asic][ip]==0):
+          continue;
+
+      hs=None
+      if (rising):
+          hs=f82.Get("/run%d/TDC%d/vthc%d" % (run,tdc,ip));
+      else:
+          hs=f82.Get("/run%d/TDC%d/vthd%d" % (run,tdc,ip));
       if (hs==None):
           continue;
       if (hs.GetEntries()==0):
         continue
       #hs.Scale(1./2700.);
-      hder=TH1F("hder%d" % ip,"derivative",900,0.,900.)	
+      hder=TH1F("hder%d" % ip,"derivative",900/rb,0.,900.)	
+      hs.Rebin(rb)
       nmax=0
       for i in range(1,hs.GetNbinsX()):
           if (hs.GetBinContent(i)==0):
@@ -711,19 +786,9 @@ def fitped(run,tdc,vthmi,vthma,ncha=64,gain=128):
         if (hs.GetBinContent(i)-hs.GetBinContent(i+1)>-10):
           hder.SetBinContent(i,hs.GetBinContent(i)-hs.GetBinContent(i+1))
       hder.Rebin(2)
-      mped=0
-      lb=0
-      for i in range(1,hder.GetNbinsX()):
-          if (hder.GetBinContent(i)>50):
-              lb=i
-      if (lb>0):
-          mped=hder.GetBinCenter(lb)
-      else:
-          mped=hder.GetMean()
-
       hder.GetXaxis().SetRangeUser(vthmin-1,vthmax);
       scfit.SetParameter(0,nmax/2.);
-      scfit.SetParameter(1,mped);
+      scfit.SetParameter(1,hder.GetMean());
       scfit.SetParameter(2,hder.GetRMS());
 
 
@@ -739,12 +804,9 @@ def fitped(run,tdc,vthmi,vthma,ncha=64,gain=128):
 
       hder.Draw()
       c1.Update()
-      #val1 = raw_input()
-      val1=""
-          
-      turnon.append(mped)
-      tped[ip-1]=mped
-      print "heho ",ip,rped,mped,hder.GetMean()
+      val1 = raw_input()
+
+      print "heho ",val1,rped,hder.GetMean()
       rped=hder.GetMean()
       if (len(val1)>0):
           rped=float(val1)
@@ -756,28 +818,44 @@ def fitped(run,tdc,vthmi,vthma,ncha=64,gain=128):
       c1.Update()
 
       fout.write("|%2d|%5.1f|%5.1f|%5.2f| \n" % (ip,scfit.GetParameter(0),rped,scfit.GetParameter(2)));
+      ipr=0
+      if (ip%2==1):
+        ipr=ip/2
+      else:
+        ipr=31-ip/2
+      firmwaret=[31,29,27,25,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6]
+      #firmwaco=[31,29,27,25,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4]
+      firmware2=[24,5,3,1,0,2,4,6,7,8,9,10,26,28,30,31,29,27,25,23,22,21,20,19]
+      
+      firmwareta1=[21,20,23,22,25,24,27,26,29,28,31,30,1,0,3,2,5,4,7,6,10,8,15,12]
+      firmwareta2=[21,20,23,22,25,24,27,26,29,28,31,30,1,0,3,2,5,4,7,6,10,8,14,12]
+      firmwaretb=[30,26,28,24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4,30,26,28,24,23,22,21,20,19,18,17,16,15,14,13,12,11,10,9,8,7,6,5,4]
+
+      if (asic==1):
+          firmware=firmwareta1
+      else:
+          firmware=firmwareta2
+      firmware=firmwaretb
+      #if (ip>0):
+      #  ipr=firmware[ip-fi-1]
+      #else:
+      #  ipr=0
+      print ip,fi,ip-fi
+      ipr=firmware[ip-fi]
+      ipr=asicmap[asic][ip]
+      ped[ipr]=rped
+      print ip,ipr,rped,scfit.GetParameter(2)
       hmean.Fill(rped)
       hnoise.Fill(scfit.GetParameter(2))
       hpmean.SetBinContent(ip+1,rped);
       hpnoise.SetBinContent(ip+1,scfit.GetParameter(2))
       #c1.SaveAs("Run%d_Strip%d.root" % (run,ip));
-      #val = raw_input()
+      val = raw_input()
 
       #hder.Draw()
       
       #c1.Update()
       #val = raw_input()
-  print tped
-  s="%d,%d," % (run,gain)
-  for a in turnon:
-    s=s+"%d," % a
-  s=s+"\n"
-  s1="%d,%d,%d," % (run,gain,tdc)
-  for a in tped:
-    s1=s1+"%d," % a
-  s1=s1+"\n"
-  fcsv.write(s1)
-  fcsv.close()
   c1.cd()
   hmean.Draw()
   hpmean.GetYaxis().SetRangeUser(vthmin,vthmax)
@@ -796,7 +874,27 @@ def fitped(run,tdc,vthmi,vthma,ncha=64,gain=128):
 
   fout.write("+--+-----+-----+-----+ \n");
   fout.close()
-  return 
+  print ped
+  val = raw_input()
+  med=5550.0
+  for i in range(32):
+    if (ped[i]==0):
+      continue;
+    if (ped[i] < med):
+      #print med,ped[i]
+      med=ped[i]
+
+  med=med+5
+  med=480
+  print "Alignment to :",med
+  dac=ped
+  for i in range(32):
+    if (ped[i]==0):
+      continue;
+    old[i]=0
+    dac[i]=int(round(old[i]+(med-ped[i])*1./2.97))
+  print "cor%d_%d=" % (tdc,asic),dac
+  return dac
 
 def calcped(oldpr,ped,median):
   print "Alignment to :",median

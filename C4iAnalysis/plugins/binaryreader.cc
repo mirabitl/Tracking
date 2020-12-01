@@ -2726,7 +2726,7 @@ void binaryreader::scurveAnalysis(rbEvent *e)
 		TH1* hpc3 = _rh->BookTH1(srpc.str(),1024,0.,1024);
 	      }
 	  }
-
+	uint64_t lb0=0,lb1=0,lb2=0;
 	for (int j = 0; j < e->frameCount(id); j++)
 	  {
 	    uint32_t idx = e->iPtr(id, j);
@@ -2743,6 +2743,7 @@ void binaryreader::scurveAnalysis(rbEvent *e)
 		    TH1* hpc= _rh->GetTH1(srpc.str());
 		    //std::cout<<srpc.str()<<std::endl;
 		    hpc->Fill(e->seuil()*1.);
+		    lb0 |=(1<<k);
 
 		  }
 		if (e->pad1(idx, k) && !e->pad0(idx,k))
@@ -2753,7 +2754,7 @@ void binaryreader::scurveAnalysis(rbEvent *e)
 		    TH1* hpc= _rh->GetTH1(srpc.str());
 		    //std::cout<<srpc.str()<<std::endl;
 		    hpc->Fill(e->seuil()*1.);
-
+		    lb1 |=(1<<k);
 		  }
 		if (e->pad0(idx, k) && e->pad1(idx, k))
 		  {
@@ -2763,10 +2764,44 @@ void binaryreader::scurveAnalysis(rbEvent *e)
 		    TH1* hpc= _rh->GetTH1(srpc.str());
 		    //std::cout<<srpc.str()<<std::endl;
 		    hpc->Fill(e->seuil()*1.);
-
+		    lb2 |=(1<<k);
 		  }
 	      }
 	  }
+	for (int i=0;i<64;i++)
+	  {
+	    if (lb0==0 &&lb1==0 && lb2==0) continue;
+	    if ((lb0>>i)&1==1)
+	      {
+		std::stringstream srpc("");
+		srpc<<sraw1.str()<<"Pade"<<i;
+		TH1* hpe= _rh->GetTH1(srpc.str());
+		if (hpe==0)
+		   hpe = _rh->BookTH1(srpc.str(),1024,0.,1024);
+		hpe->Fill(e->seuil()*1.);
+	      }
+	    if ((lb1>>i)&1==1)
+	      {
+		std::stringstream srpc("");
+		srpc<<sraw2.str()<<"Pade"<<i;
+		TH1* hpe= _rh->GetTH1(srpc.str());
+		if (hpe==0)
+		   hpe = _rh->BookTH1(srpc.str(),1024,0.,1024);
+		hpe->Fill(e->seuil()*1.);
+	      }
+	    if ((lb2>>i)&1==1)
+	      {
+		std::stringstream srpc("");
+		srpc<<sraw3.str()<<"Pade"<<i;
+		TH1* hpe= _rh->GetTH1(srpc.str());
+		if (hpe==0)
+		   hpe = _rh->BookTH1(srpc.str(),1024,0.,1024);
+		hpe->Fill(e->seuil()*1.);
+	      }
+
+	  }
+	  
+
       }
 
 }
