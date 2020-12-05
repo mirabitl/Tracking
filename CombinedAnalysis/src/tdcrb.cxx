@@ -291,6 +291,8 @@ void tdcrb::read()
   uint32_t _eventChannels;
   _geo->fillFebs(_run);
   _geo->fillAlign(_run);
+  std::map<uint32_t,uint64_t> mbx;
+  mbx.clear();
   while (_started)
     {
       if (!_started) return;
@@ -331,6 +333,7 @@ void tdcrb::read()
 	  memset(_eventChannel,0,4096*8*sizeof(uint64_t));
 	  _eventChannels=0;
 	  bool _initialised=false;
+	  float treal=0;
 	  for (uint32_t idif=0;idif<theNumberOfDIF;idif++) 
 	    {
 	      uint32_t tbcid=0;
@@ -356,10 +359,19 @@ void tdcrb::read()
 	      b.uncompress();
 	      memcpy(&_buf[_idx], b.payload(),b.payloadSize());
 
-	      b.setDetectorId(b.detectorId()&0xFF);
-	      INFO_PRINTF("\t \t %d %x %d %ld %d %d %d\n",b.detectorId()&0XFF,b.dataSourceId(),b.eventId(),b.bxId(),b.payloadSize(),bsize,_idx);
+	      auto ib=mbx.find(b.dataSourceId());
+	      if (ib==mbx.end())
+		{
+		  std::pair<uint32_t,uint64_t> p(b.dataSourceId(),0);
+		  mbx.insert(p);
+		}
 	      
+	      b.setDetectorId(b.detectorId()&0xFF);
+	      INFO_PRINTF("\t \t %d %x %d %lx %d %d %d delta %ld %ld \n",b.detectorId()&0XFF,b.dataSourceId(),b.eventId(),b.bxId(),b.payloadSize(),bsize,_idx, mbx[b.dataSourceId()], b.bxId()-mbx[b.dataSourceId()]);
+	      treal=(b.bxId()-mbx[b.dataSourceId()])*2E-7;
 	      _bxId=b.bxId();
+	      mbx[b.dataSourceId()]=_bxId;
+	      //continue;
 	      if (_bxId0==0) _bxId0=_bxId;
 	      uint32_t _detId=b.detectorId()&0xFF;
 	      //DEBUG_PRINTF("DETID %d \n",_detId);
@@ -403,11 +415,14 @@ void tdcrb::read()
 		  //  itemp[5]=_adr;
 		  //  itemp[6]=length;
 		  // printf("%d %ld %d %x %d \n",ibuf[1],lbuf[1],ibuf[4],ibuf[5],ibuf[6]);
-		  /**
+		  
 		     int cnt=0,cntmax=20;
-		     for (int i=0;i<b.payloadSize();i++)
+		     for (int i=0;i<30;i++)
 		     {
 		     printf("%.2x ",bb[i]);
+		     }
+		     printf("\n");
+		     /**
 		     cnt++;
 		     if (cnt==cntmax)
 		     {
@@ -427,7 +442,7 @@ void tdcrb::read()
 		     getchar();
 		  */
 		  uint32_t idstart=sdhcal::PMRUnpacker::getStartOfPMR(bb,b.payloadSize(),0);
-		  fprintf(stdout,"\n IDSTART %d %d  %d %llu => %d %d Dif %d \n",idstart,sdhcal::PMRUnpacker::getID(bb,idstart),sdhcal::PMRUnpacker::getGTC(bb,idstart),sdhcal::PMRUnpacker::getAbsoluteBCID(bb,idstart),sdhcal::PMRUnpacker::getLastTriggerBCID(bb,idstart),sdhcal::PMRUnpacker::getBCID(bb,idstart),sdhcal::PMRUnpacker::getLastTriggerBCID(bb,idstart)-sdhcal::PMRUnpacker::getBCID(bb,idstart));
+		  //fprintf(stdout,"\n IDSTART %d %d  %d %llu => %d %d Dif %d \n",idstart,sdhcal::PMRUnpacker::getID(bb,idstart),sdhcal::PMRUnpacker::getGTC(bb,idstart),sdhcal::PMRUnpacker::getAbsoluteBCID(bb,idstart),sdhcal::PMRUnpacker::getLastTriggerBCID(bb,idstart),sdhcal::PMRUnpacker::getBCID(bb,idstart),sdhcal::PMRUnpacker::getLastTriggerBCID(bb,idstart)-sdhcal::PMRUnpacker::getBCID(bb,idstart));
 		  //getchar();
 		  if (!_initialised)
 		    {
@@ -440,12 +455,76 @@ void tdcrb::read()
 		  _theEvent.difList().push_back(d);
 		  _idx+=b.payloadSize();
 		}
-     
+
+
+	      if (_detId==130)
+		{
+		  uint8_t* bb=&_buf[_idx];
+		  uint32_t* ibuf=(uint32_t*) b.payload();
+		  
+		  for (int i=0;i<7;i++)
+		    {
+		      printf("%d ",ibuf[i]);
+		    }
+		  uint32_t nch=ibuf[6];
+		  printf("\n channels -> %d \n",nch);
+		  _mezzanine=ibuf[4];
+		  _difId=(ibuf[5]>>24)&0xFF;
+		  _gtc=ibuf[1];
+		  
+		  if (!_initialised)
+		    {
+		      _theEvent.init(_run,_event,_bxId,_gtc);
+		      _initialised=true;
+		    }
+		  INFO_PRINTF("\t \t \t %d %d GTC %d NCH %d \n",_mezzanine,_difId,_gtc,nch);
+		  getchar();
+		  
+		  if (ibuf[6]>=0)
+		    {
+		      uint8_t* cbuf=( uint8_t*)&ibuf[7];
+		      bool tfound=false;
+		      for (int i=0;i<nch;i++)
+			{
+#define DUMPCHANSN	
+#ifdef DUMPCHANS			  
+			  for (int j=0;j<6;j++)
+			     INFO_PRINTF("\t %.2x ",cbuf[i*6+j]);
+			   INFO_PRINTF("\n");
+#endif
+			  memcpy(&_eventChannel[_eventChannels],&cbuf[6*i],6*sizeof(uint8_t));
+			  lydaq::TdcChannel ca((uint8_t*) &_eventChannel[_eventChannels],_difId&0xFF);
+			  //c.dump();
+			 
+			  _eventChannels++;
+			  if (ca.channel()==0)
+			    {
+			      _0coarse[_difId&0xFF]=ca.coarse();
+			      _0fine[_difId&0xFF]=ca.fine();
+			    }
+			  //_mezMap[_difId].push_back(c);
+			  ca.setZero(_0coarse[_difId&0xFF], _0fine[_difId&0xFF]);
+			  //  ca.dump();
+			  //std::cout<<_difId<<" "<<(int) _0coarse[_difId&0xFF]<<" "<< (int) _0fine[_difId&0xFF]<<std::endl;
+			  _vAll.push_back(ca);
+			  
+			}
+		      //if (nch>0) getchar();
+#ifdef DUMPCHANS
+		      if (nch>0) getchar();
+#endif
+		    }
+
+		}
+
 	    }
+
+	  /// Timing
 	  bool oneselected=false;
 	  if (_theEvent.isDifType())
 	    {
 	      TH1* hacqtim= _rh->GetTH1("/BR/AcquistionTime");
+	      TH1* hrealtim= _rh->GetTH1("/BR/RealTime");
 	      TH1* hmt= _rh->GetTH1("/BR/MaxTime");
 	      TH1* hc= _rh->GetTH1("/BR/Count");
 	      TH1* hcs= _rh->GetTH1("/BR/PadCountSelected");
@@ -456,6 +535,7 @@ void tdcrb::read()
 	      if (hacqtim==NULL)
 		{
 		  hacqtim=_rh->BookTH1("/BR/AcquistionTime",10000.,0.,10000.);
+		  hrealtim=_rh->BookTH1("/BR/RealTime",10000.,0.,2.);
 		  hmt=_rh->BookTH1("/BR/MaxTime",10000.,0.,5.);
 		  hc=_rh->BookTH1("/BR/Count",100.,-0.1,99.9);
 		  hcs=_rh->BookTH1("/BR/PadCountSelected",100.,-0.1,99.9);
@@ -463,6 +543,7 @@ void tdcrb::read()
 		  hxy=_rh->BookTH2("/BR/XY",64,0.1,64.1,35,0.1,35.1);
 		  hxys=_rh->BookTH2("/BR/XYSelected",48,0.1,48.1,24,0.1,24.1);
 		}
+	      hrealtim->Fill(treal);
 	      hc->Fill(1.);
 	      _theEvent.tFrame().clear();
 	      _theEvent.tCount().clear();
@@ -594,6 +675,21 @@ void tdcrb::read()
 
 	    }
 	  printf(" TCOUNT %d TMAP %d \n",_theEvent.tCount().size(),_theEvent.tFrame().size());
+	  bool coinc=false;
+	  for (auto x:_theEvent.tCount())
+	    {
+	      if (x.second.count()>2)
+		{
+		fprintf(stderr," bcid %d cnt %d \n",x.first,x.second.count());
+		auto tf=_theEvent.tFrame()[x.first];
+		 for (auto it=tf.begin();it!=tf.end();it++)
+		   {
+		     std::cout<<it->first->getID()<<" "<<it->first->getFrameTimeToTrigger(it->second)<<std::endl;
+		       }
+		coinc=true;
+		}
+	    }
+	  //if (coinc) getchar();
 	  //if (oneselected)
 	    for (auto p:_processors)
 	      p->processEvent(&_theEvent);

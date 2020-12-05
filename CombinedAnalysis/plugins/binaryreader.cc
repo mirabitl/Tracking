@@ -52,12 +52,14 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
 {
   TH2* hzx=_rh->GetTH2("/gric/ZX");
   TH2* hzy=_rh->GetTH2("/gric/ZY");
+  TH2* hxy=_rh->GetTH2("/gric/XY");
   TH1* hcount=_rh->GetTH1("/gric/Count");
   if (hzx==NULL)
     {
       hcount=_rh->BookTH1("/gric/Count",10,0.1,10.1);
       hzx=_rh->BookTH2("/gric/ZX",400,0.,200.,100.,0.,100.);
-      hzy=_rh->BookTH2("/gric/ZY",400,0.,200.,40.,0.,80.);
+      hzy=_rh->BookTH2("/gric/ZY",400,0.,200.,80.,0.,80.);
+      hxy=_rh->BookTH2("/gric/XY",100,0.,100.,80.,0.,80.);
 	    }
   hzx->Reset();
   hzy->Reset();
@@ -129,7 +131,7 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
 
   top_tk.setDir(ax,ay,1.);
   top_tk.setOrig(bx,by,0);
-  printf(" ax %f bx %f ay %f by %f \n",ax,ay,bx,by);
+  printf("Shower ax %f ay %f bx %f by %f \n",ax,ay,bx,by);
   for (auto x=_vPoints.begin();x!=_vPoints.end();x++)
     {
       recoPoint &p=(*x);
@@ -145,8 +147,18 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
     top_tk.regression();
     top_tk.calculateChi2();
   }
+  else
+    return;
+  if (top_tk.orig().X()>47) return;
+  printf(" TK ax %f ay %f bx %f by %f \n",
+	   top_tk.dir().X(),
+	   top_tk.dir().Y(),
+	   top_tk.orig().X(),
+	 top_tk.orig().Y());
 
-
+  ROOT::Math::XYZPoint p=top_tk.extrapolate(85);
+  hxy->Fill(p.X(),p.Y());
+  hcount->Fill(9.);
 
   
   if (_geoRoot["general"]["display"].asUInt()==0) return;
