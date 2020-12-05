@@ -332,6 +332,7 @@ void tdcrb::read()
 	  
 	  memset(_eventChannel,0,4096*8*sizeof(uint64_t));
 	  _eventChannels=0;
+	  _theEvent.tdcChannels().clear();
 	  bool _initialised=false;
 	  float treal=0;
 	  for (uint32_t idif=0;idif<theNumberOfDIF;idif++) 
@@ -478,7 +479,7 @@ void tdcrb::read()
 		      _initialised=true;
 		    }
 		  INFO_PRINTF("\t \t \t %d %d GTC %d NCH %d \n",_mezzanine,_difId,_gtc,nch);
-		  getchar();
+
 		  
 		  if (ibuf[6]>=0)
 		    {
@@ -506,7 +507,7 @@ void tdcrb::read()
 			  ca.setZero(_0coarse[_difId&0xFF], _0fine[_difId&0xFF]);
 			  //  ca.dump();
 			  //std::cout<<_difId<<" "<<(int) _0coarse[_difId&0xFF]<<" "<< (int) _0fine[_difId&0xFF]<<std::endl;
-			  _vAll.push_back(ca);
+			  _theEvent.tdcChannels().push_back(ca);
 			  
 			}
 		      //if (nch>0) getchar();
@@ -563,9 +564,12 @@ void tdcrb::read()
 		  // Loop on Frames
 		  bool trigged=false;
 		  uint32_t nps=0,nfs=0;
+
 		  for (uint32_t ifra=0;ifra<d->getNumberOfFrames();ifra++)
 		    {
 		      int32_t bc=d->getFrameTimeToTrigger(ifra);
+		      //bc=d->getFrameBCID(ifra);
+		      //printf(" Frame BCID ch %d dif %d asic %d framebc %d difbc %d delta %d \n",chid,d->getID(),d->getFrameAsicHeader(ifra),d->getFrameBCID(ifra),d->getBCID(),bc);
 		      if ((bc*2E-7)>mt) mt=bc*2E-7;
 		      fflush(stdout);
 		      hacqtim->Fill(bc);

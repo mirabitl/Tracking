@@ -159,8 +159,14 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
   ROOT::Math::XYZPoint p=top_tk.extrapolate(85);
   hxy->Fill(p.X(),p.Y());
   hcount->Fill(9.);
-
-  
+  printf("NCH %d \n",e->tdcChannels().size());
+  // getchar();
+  for (auto x:e->tdcChannels())
+    {
+      if ((ibc-x.bcid())<200 &&(ibc-x.bcid())>-200 )
+	printf("%d %d %d \n",ibc,x.bcid(),ibc-x.bcid());
+    }
+  //getchar();
   if (_geoRoot["general"]["display"].asUInt()==0) return;
   if (TCHits==NULL)
     {

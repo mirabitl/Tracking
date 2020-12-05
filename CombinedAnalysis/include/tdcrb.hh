@@ -72,5 +72,9 @@ private:
   std::map<uint64_t,std::vector<zdaq::buffer*> > _eventMap;
   rbEvent _theEvent;
   std::vector<rbProcessor* > _processors;
+
+  uint64_t _0coarse[255];
+  uint8_t  _0fine[255];
+
 };
 #endif

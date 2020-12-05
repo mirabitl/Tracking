@@ -1,6 +1,7 @@
 #ifndef _RBEVENT_HH_
 #define _RBEVENT_HH_
 #include "SdhcalPmrAccess.hh"
+#include "TdcChannel.hh"
 #include <json/json.h>
 #define MAXDIF 256
 #define MAXFRAME 128
@@ -42,6 +43,7 @@ public:
   inline  std::map<uint32_t,std::vector<std::pair<sdhcal::PMRPtr*,uint32_t> > > &tFrame(){ return _tframe;}
   inline std::map<uint32_t,std::bitset<64> > &tCount(){return _tcount;}
   inline std::vector<sdhcal::PMRPtr*> &difList(){return thePMRPtrList_;}
+  inline std::vector<lydaq::TdcChannel> &tdcChannels(){return _vAll;}
 private:
   uint32_t _run,_event,_gtc;
   uint64_t _abcid;
@@ -52,6 +54,8 @@ private:
   std::map<uint32_t,std::vector<std::pair<sdhcal::PMRPtr*,uint32_t> > > _tframe;
   std::map<uint32_t,std::bitset<64> > _tcount;
 
+  std::vector<lydaq::TdcChannel> _vAll;
+   
 };
 
 
