@@ -91,7 +91,8 @@ namespace sdhcal
     inline uint32_t getFrameAsicHeader(uint32_t i){return sdhcal::PMRUnpacker::getFrameAsicHeader(theFrames_[i]);}
     inline uint32_t getFrameBCID(uint32_t i){return sdhcal::PMRUnpacker::getFrameBCID(theFrames_[i]);}
     inline uint32_t getFrameBCIDW(uint32_t i){return sdhcal::PMRUnpacker::getFrameBCIDW(theFrames_[i]);}
-    inline uint32_t getFrameTimeToTrigger(uint32_t i){return getBCID()-getFrameBCID(i);}
+    //    inline uint32_t getFrameTimeToTrigger(uint32_t i){return getBCID()-getFrameBCID(i);}
+    inline uint32_t getFrameTimeToTrigger(uint32_t i){getFrameBCID(i);}
     inline bool getFrameLevel(uint32_t i,uint32_t ipad,uint32_t ilevel){return sdhcal::PMRUnpacker::getFrameLevel(theFrames_[i],ipad,ilevel);}
     inline uint32_t getFrameData(uint32_t i,uint32_t iword){return sdhcal::PMRUnpacker::getFrameData(theFrames_[i],iword);}
     void dumpPMRInfo()

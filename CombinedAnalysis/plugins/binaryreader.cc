@@ -19,7 +19,8 @@
 #include "TPrincipal.h"
 #include "HoughLocal.hh"
 
-//using namespace zdaq;
+using namespace lydaq;
+using namespace lmana;
 binaryreader::binaryreader() : _run(0),_started(false),_fdOut(-1),_totalSize(0),_event(0) {}
 void binaryreader::init(uint32_t run)
 {
@@ -53,13 +54,21 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
   TH2* hzx=_rh->GetTH2("/gric/ZX");
   TH2* hzy=_rh->GetTH2("/gric/ZY");
   TH2* hxy=_rh->GetTH2("/gric/XY");
+  TH2* hxyt=_rh->GetTH2("/gric/XYT");
   TH1* hcount=_rh->GetTH1("/gric/Count");
+  TH1* hdt=_rh->GetTH1("/gric/dt");
+  TH1* hch=_rh->GetTH1("/gric/tdcchannel");
+  TH1* hinti=_rh->GetTH1("/gric/InTime");
   if (hzx==NULL)
     {
       hcount=_rh->BookTH1("/gric/Count",10,0.1,10.1);
+      hdt=_rh->BookTH1("/gric/dt",100000,-100000.,220000.);
+      hch=_rh->BookTH1("/gric/tdcchannel",70,0.,70.);
+      hinti=_rh->BookTH1("/gric/InTime",70,-0.1,69.9);
       hzx=_rh->BookTH2("/gric/ZX",400,0.,200.,100.,0.,100.);
       hzy=_rh->BookTH2("/gric/ZY",400,0.,200.,80.,0.,80.);
-      hxy=_rh->BookTH2("/gric/XY",100,0.,100.,80.,0.,80.);
+      hxy=_rh->BookTH2("/gric/XY",100,0.,50.,70.,0.,35.);
+      hxyt=_rh->BookTH2("/gric/XYT",100,0.,50.,70.,0.,35.);
 	    }
   hzx->Reset();
   hzy->Reset();
@@ -161,11 +170,34 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
   hcount->Fill(9.);
   printf("NCH %d \n",e->tdcChannels().size());
   // getchar();
+  uint32_t ninti=0;
+  std::vector<lydaq::TdcChannel> vChannel; vChannel.clear();
   for (auto x:e->tdcChannels())
     {
-      if ((ibc-x.bcid())<200 &&(ibc-x.bcid())>-200 )
-	printf("%d %d %d \n",ibc,x.bcid(),ibc-x.bcid());
+      uint32_t coarsedif=ibc*80;
+      while (coarsedif>((1<<24)-1))
+	coarsedif -=((1<<24)-1);
+      double ddt=(coarsedif-(x.tdcTime()/2.5))*2.5/200.;
+      //ddt=ddt*2.5/200.;
+	  
+      if (ddt<0 && ddt>-10.0 )
+	{
+	  vChannel.push_back(x);
+	  printf("=======> %d %d %d %d \n",ibc,int(ddt),x.feb(),x.channel());
+	  hch->Fill((x.feb()-14.)+x.channel());
+	  ninti++;
+	}
+      hdt->Fill(ddt);
+
     }
+  if (p.Y()<20.)
+    hinti->Fill(ninti*1.);
+  if (ninti>0) {
+
+    hxyt->Fill(p.X(),p.Y());
+    this->stripStudy(vChannel,"FEB");
+  }
+
   //getchar();
   if (_geoRoot["general"]["display"].asUInt()==0) return;
   if (TCHits==NULL)
@@ -179,6 +211,7 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
   hzx->SetMarkerStyle(25);
   hzx->SetMarkerColor(kRed);
   hzx->Draw("P");
+  if (top_tk.size()>1) top_tk.linex()->Draw("SAME");
   TCHits->Modified();
   TCHits->Draw();
   TCHits->Update();
@@ -186,6 +219,7 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
   hzy->SetMarkerStyle(22);
   hzy->SetMarkerColor(kGreen);
   hzy->Draw("P");
+  if (top_tk.size()>1) top_tk.liney()->Draw("SAME");
   TCHits->Modified();
   TCHits->Draw();
   TCHits->Update();
@@ -593,6 +627,379 @@ int32_t binaryreader::TPrincipalComponents(double result[21],float zmin,float zm
 	TCPC->Update();
 	*/
 	return 0;
+}
+
+
+bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::string subdir)
+{
+  float ch1_dt[128];
+
+
+  memset(ch1_dt,0,128*sizeof(float));
+
+  uint32_t triggerChannel=1;
+  float dtmin=-540,dtmax=-585;
+  bool noisy=false,_display=false;
+  uint32_t chamber=1;
+  //dtmin+=100;dtmax+=100;
+  _strips.clear();
+  std::vector<TdcChannel*> c_strip[128];
+  for (int i=0;i<128;i++) c_strip[i].clear();
+  float maxtime=0,mttime=0;uint32_t nch=0,ntrg=0;
+  std::bitset<48> stfeb(0);
+  for (auto x=vChannel.begin();x!=vChannel.end();x++)
+    {
+      // Drop Trigger Channel
+      if (x->channel()==1) continue;
+      std::stringstream sraw;
+      sraw<<"/run"<<_run<<"/"<<subdir<<"/Chamber"<<chamber<<"/Raw/";
+      TH1* hchan=_rh->GetTH1(sraw.str()+"Channels");
+      TH1* hstrips=_rh->GetTH1(sraw.str()+"Strips");
+      if (hchan==NULL)
+	{
+	  hchan=_rh->BookTH1(sraw.str()+"Channels",48*16,0.,48.*16);
+	  hstrips=_rh->BookTH1(sraw.str()+"Strips",96,0,96);
+	}
+      hchan->Fill(x->feb()*48+x->channel());
+      hstrips->Fill( x->side(_geo->feb(x->feb()))*48+x->detectorStrip(_geo->feb(x->feb())));
+	    
+	  // printf("%f %f \n",dtmin,dtmax);
+	  // getchar();
+	  // Book and fill time to trigger
+	  //dtm[x->feb()][ 
+      c_strip[x->detectorStrip(_geo->feb(x->feb()))].push_back(&(*x));
+
+      
+      printf(" Channel %d Strip %d Shift %d Side %d %f raw %f\n",x->channel(),x->detectorStrip(_geo->feb(x->feb())),_geo->feb(x->feb()).stripShift,x->side(),x->pedSubTime(_geo->feb(x->feb())),x->pedSubTime(_geo->feb(x->feb())));
+	      //if (x->feb()==11)
+      
+
+
+
+	  
+      nch++;
+    }
+      // if (nch)
+      // 	getchar();
+  std::stringstream srcc;
+  srcc<<"/run"<<_run<<"/"<<subdir<<"/Chamber"<<chamber<<"/";
+      
+  TH1* hfr=_rh->GetTH1(srcc.str()+"FebCount");
+  TH1* hfrs=_rh->GetTH1(srcc.str()+"FebCountSel");
+  TH2* hcor=_rh->GetTH2(srcc.str()+"CCOR");
+
+      
+  if (hfr==NULL)
+    {
+      
+      hfr=_rh->BookTH1(srcc.str()+"FebCount",49,0.,49.);
+      hfrs=_rh->BookTH1(srcc.str()+"FebCountSel",49,0.,49.);
+      hcor=_rh->BookTH2(srcc.str()+"CCOR",100,0,100,100,0,100);
+
+    }
+  hfr->Fill(48.);
+  hfrs->Fill(48.);
+  for (int i=0;i<48;i++)
+    if (stfeb[i]>0) hfr->Fill(i*1.);
+
+
+
+
+  for (int i=0;i<128;i++)
+    {
+      if (c_strip[i].size()==0) continue;
+      for (auto x:c_strip[i])
+	{
+	  if (x->feb()==11) continue;
+	  if (x->side(_geo->feb(x->feb()))==1) continue;
+	  for (int j=0;j<128;j++)
+	    {
+	      if (c_strip[j].size()==0) continue;
+	      for (auto y:c_strip[j])
+		{
+		  if (x->channel()!=y->channel())
+		    hcor->Fill(x->channel()+0.2,y->channel()+0.2);
+		}
+	    }
+	}
+
+    }
+      maxtime=maxtime*1E-9;
+
+      fprintf(stderr," Maxtime %d %f %d %f \n",chamber,maxtime,nch,nch/maxtime/6500);
+      //getchar();
+      bool dostop=false;int nstrip=0;
+      uint16_t febc[48];
+      memset(febc,0,48*sizeof(uint16_t));
+      std::bitset<64> stb(0);
+      std::bitset<64> stb0(0);
+      std::bitset<64> stb1(0);
+      for (int i=0;i<128;i++)
+	{
+	  if (c_strip[i].size()>0)
+	    {
+	      fprintf(stderr,"Chamber %d Strip %d # %d \n",chamber,i,c_strip[i].size());
+	      nstrip++;
+	      if (i<48)
+		stb.set(i,1);
+	    }
+
+	  for (auto x:c_strip[i])
+	    {
+	      if (x->side(_geo->feb(x->feb()))==0 && i<48)
+		stb0.set(i,1);
+	      else
+		if (i<48)
+		  stb1.set(i,1);
+	    }
+	
+	  if (c_strip[i].size()>2) dostop=true;
+
+	  if (c_strip[i].size()==2)
+	    {
+	      double t0=-1,t1=-1;
+	      for (auto x:c_strip[i])
+		{
+
+		  //fprintf(stderr,"\t %d %d %f %f \n",x->channel(), x->side(_geo->feb(x->feb())),x->tdcTime(),x->tdcTime()-ttime);
+		  double dt=_geo->feb(x->feb()).dtc[x->channel()];
+		  if (t0<0 &&  x->side(_geo->feb(x->feb()))==0)
+		    {
+		      t0=x->pedSubTime(_geo->feb(x->feb()))-dt;
+
+		      //printf("T0 %d %d %d %d %f %f dt=%f \n",x->feb(),x->channel(),x->coarse(),x->fine(),x->tdcTime(),t0,dt);
+		    }
+		  if (t1<0 &&  x->side(_geo->feb(x->feb()))==1)
+		    {
+		      t1=x->pedSubTime(_geo->feb(x->feb()))-dt;
+		      //printf("T1 %d %d %d %d %f %f \n",x->feb(),x->channel(),x->coarse(),x->fine(),x->tdcTime(),t1);
+		    }
+		  if(t0>0 && t1>0 )
+		    {
+		      febc[x->feb()]++;
+		      std::cout<<x->feb()<<" FEBC "<< febc[x->feb()]<<std::endl;
+		      if (_geo->feb(x->feb()).polarity==-1)
+			{
+			  double tt=t1;
+			  t1=t0;
+			  t0=tt;
+			}
+		    
+		      //lmana::TdcStrip ts(_geo->feb(x->feb()).chamber,x->feb(),x->detectorStrip(_geo->feb(x->feb())),t0,t1,_geo->feb(x->feb()).timePedestal[x->detectorStrip( _geo->feb(x->feb()))]);
+		      if (chamber==1)
+			{
+			  lmana::TdcStrip ts(_geo->feb(x->feb()).chamber,x->feb(),x->detectorStrip(_geo->feb(x->feb())),t0,t1,_geo->feb(x->feb()).timePedestal[x->detectorStrip( _geo->feb(x->feb()))]);
+					     //ch1_dt[x->detectorStrip( _geo->feb(x->feb()))+1]);
+			  if (abs(ts.ypos())>-1000000.) // Usually >1 
+			    _strips.push_back(ts);
+			}
+		      // else
+		      // 	{
+		      // 	  lmana::TdcStrip ts(_geo->feb(x->feb()).chamber,x->feb(),x->detectorStrip(_geo->feb(x->feb())),t0,t1,ch2_dt[x->detectorStrip( _geo->feb(x->feb()))+1]);
+		      // 	  _strips.push_back(ts);
+		      // 	}
+
+		    }
+		}
+
+
+
+	    
+	    }
+	}
+      // getchar();
+      for (int i=0;i<48;i++)
+	if (febc[i]>0) hfrs->Fill(i*1.);
+
+      if (dostop) return true;
+      if (stb.count()>48) return true;
+      noisy=(stb.count()>48);
+      //for (int i=0;i<48;i++)
+      // if (febc[i]>=10) return true;
+      //std::cout<<stb<<std::endl;
+      std::vector<lmana::TdcCluster> vclus;
+      vclus.clear();
+      float step=2.;
+      //if (chamber==1) step=4.;
+      for (auto it=_strips.begin();it!=_strips.end();it++)
+	{
+	  //fprintf(stderr,"%d %d %f %f %f %f \n",it->chamber(),it->strip(),it->xpos(),it->ypos(),it->t0(),it->t1());
+	  if (it->chamber()!=chamber) continue;
+	  //	      if (it->ypos()<-10 || it->ypos()>-0.2) continue;
+	  bool found=false;
+	  for (auto ic=vclus.begin();ic!=vclus.end();ic++)
+	    {
+	      if (ic->isAdjacent((*it),step))
+		{
+		  ic->addStrip((*it));
+		  found=true;
+		  break;
+		}
+	    }
+	  if(!found)
+	    {
+	      lmana::TdcCluster c;
+	      c.addStrip((*it));
+	      vclus.push_back(c);
+	    }
+	}
+
+      // Merge adjacent cluster
+      bool merged=false;
+      //printf("vclus size %d \n",vclus.size());
+      for (auto it=vclus.begin();it!=vclus.end();it++)
+	{
+	  for (auto jt=it+1;jt!=vclus.end();)
+	    {
+	      bool adj=false;
+	      for (int i=0;i<jt->size();i++)
+		{
+		  if (it->isAdjacent(jt->strip(i),step))
+		    {adj=true;break;}
+		}
+	      if (adj)
+		{
+		  merged=true;
+		  printf("Merigng cluster \n");
+		  for (int i=0;i<jt->size();i++)
+		    {
+		      it->addStrip(jt->strip(i));
+		    }
+		  vclus.erase(jt);
+		}
+	      else
+		++jt;
+	    }
+	}
+      //printf("vclus size after %d \n",vclus.size());
+      //if (merged)
+      //	getchar();
+      std::stringstream src;
+      src<<"/run"<<_run<<"/"<<subdir<<"/Chamber"<<chamber<<"/ClusterNew/";
+		  
+      TH2* hposs=_rh->GetTH2(src.str()+"XYStrip");
+      TH2* hposc=_rh->GetTH2(src.str()+"XY");
+      TH2* hposc1=_rh->GetTH2(src.str()+"XY1");
+      TH2* hposcm=_rh->GetTH2(src.str()+"XYMore");
+      TH2* hposcma=_rh->GetTH2(src.str()+"XYMax");
+      TH2* hposx=_rh->GetTH2(src.str()+"XYX");
+      TH1* hncl=_rh->GetTH1(src.str()+"Clusters");
+      TH1* hmulc=_rh->GetTH1(src.str()+"ClusterSize");
+      TH1* hmulc1=_rh->GetTH1(src.str()+"ClusterSize1");
+      TH1* hns=_rh->GetTH1(src.str()+"nstrip");
+      TH1* hns0=_rh->GetTH1(src.str()+"nstrip0");
+      TH1* hns1=_rh->GetTH1(src.str()+"nstrip1");
+      TH1* hns2=_rh->GetTH1(src.str()+"nstrip2");
+      TH1* htoa=_rh->GetTH1(src.str()+"TOA");
+      TH1* hdtr0=_rh->GetTH1(src.str()+"DT0");
+      TH1* hdtr1=_rh->GetTH1(src.str()+"DT1");
+
+      if (hposc==NULL)
+	{
+	      
+	  hposc=_rh->BookTH2(src.str()+"XY",128,0.,128.,256,-30.,30.);
+	  hposs=_rh->BookTH2(src.str()+"XYStrip",128,0.,128.,256,-30.,30.);
+	  hposc1=_rh->BookTH2(src.str()+"XY1",128,0.,128.,256,-30.,30.);
+	  hposcm=_rh->BookTH2(src.str()+"XYMore",128,0.,128.,256,-30.,30.);
+	  hposcma=_rh->BookTH2(src.str()+"XYMax",128,0.,128.,3000,-30.,30.);
+	  hposx=_rh->BookTH2(src.str()+"XYX",128,0.,128.,600,-160.,160.);
+	  hncl=_rh->BookTH1(src.str()+"Clusters",32,0.,32.);
+	  hmulc=_rh->BookTH1(src.str()+"ClusterSize",32,0.,32.);
+	  hmulc1=_rh->BookTH1(src.str()+"ClusterSize1",32,0.,32.);
+	  hns=_rh->BookTH1(src.str()+"nstrip",48,0.,48.);
+	  hns0=_rh->BookTH1(src.str()+"nstrip0",48,0.,48.);
+	  hns1=_rh->BookTH1(src.str()+"nstrip1",48,0.,48.);
+	  hns2=_rh->BookTH1(src.str()+"nstrip2",48,0.,48.);
+	  htoa=_rh->BookTH1(src.str()+"TOA",100,-570.,-600.);
+	  hdtr0=_rh->BookTH1(src.str()+"DT0",20000,-1000.,0.);
+	  hdtr1=_rh->BookTH1(src.str()+"DT1",20000,-1000.,0.);
+	}
+      hns->Fill(nstrip);
+      hns0->Fill(stb0.count());
+      hns1->Fill(stb1.count());
+      hns2->Fill(_strips.size());
+      printf(" ===> %d  %d strips , Number of clusters %d \n",chamber,_strips.size(),vclus.size());
+      //if (vclus.size()>0)
+      hncl->Fill(vclus.size()*1.);
+      uint32_t maxs=0;
+      for (auto x:vclus)
+	{
+	  // if (vclus.size()>1)
+	  //   {
+	  if (_display)
+	    {
+	      fprintf(stderr,"\t %f %f %d \n",x.X(),x.Y(),x.size());
+	      for (int i=0;i<x.size();i++)
+		{
+		  fprintf(stderr,"\t \t  %5.1f %5.3f %5.3f %5.3f %5.3f %5.3f %5.3f \n",x.strip(i).xpos(),x.strip(i).ypos(),x.strip(i).shift(),x.strip(i).t0(),x.strip(i).t1(),(x.strip(i).t0()+x.strip(i).t1())/2.,0);
+		}
+	    }
+	  //   }
+	  if (vclus.size()==1)
+	    for (int i=0;i<x.size();i++)
+	      {
+		htoa->Fill((x.strip(i).t0()+x.strip(i).t1())/2.);
+		hdtr0->Fill(x.strip(i).t0());
+		hdtr1->Fill(x.strip(i).t1());
+	      }
+
+	  if (x.size()>30) continue;
+	  hposc->Fill(x.X(),x.Y());
+	  if (vclus.size()==1)
+	    {hposc1->Fill(x.X(),x.Y());
+	      hmulc1->Fill(x.size()*1.);
+	    }
+	  
+	  
+	  hmulc->Fill(x.size()*1.);
+	  //printf("%d %f %f \n",x.size(),x.X(),x.Y());
+	  if (x.size()>maxs) maxs=x.size();
+	}
+      //if (vclus.size()>1) getchar();
+      int nc=0;
+      for (auto x:vclus)
+	{
+	  nc++;
+	  if (x.size()>16) continue;
+	  if (x.size()==maxs)
+	    {
+	      hposcma->Fill(x.X(),x.Y());
+	      float L=160.;
+	      float v=160./8.7;
+	      float xl=(L-x.Y()*v)/2.-L/2.;
+	      hposx->Fill(x.X(),xl);
+
+	      for (int i=0;i<x.size();i++)
+		{
+		  hposs->Fill(x.strip(i).xpos(),x.strip(i).ypos());
+		  std::stringstream srcs;
+		  srcs<<src.str()<<"align/strip"<<int(x.strip(i).xpos());
+		  //std:cout<<srcs.str()<<std::endl;
+		  TH1* hdts=_rh->GetTH1(srcs.str());
+		  if (hdts==NULL)
+		    hdts=_rh->BookTH1(srcs.str(),300,-30,30.);
+		  hdts->Fill(x.strip(i).ypos());
+		}
+	      break;
+	    }
+	}
+      int ncp=0;
+      for (auto x:vclus)
+	{
+	  ncp++;
+	  if (x.size()>16) continue;
+
+	  if (ncp==nc) continue;
+	  hposcm->Fill(x.X(),x.Y());  
+	}
+      // if (_display)
+      // 	{
+      // 	  this->drawHits(chamber);
+      // 	  if (chamber==2 ) getchar();
+      // 	}
+
+
+  return false;
 }
 
 

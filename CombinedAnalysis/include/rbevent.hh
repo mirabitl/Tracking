@@ -3,10 +3,141 @@
 #include "SdhcalPmrAccess.hh"
 #include "TdcChannel.hh"
 #include <json/json.h>
+#include <algorithm>
 #define MAXDIF 256
 #define MAXFRAME 128
 #define FSIZE 20
 using namespace sdhcal;
+
+namespace lmana
+{
+  class TdcStrip
+  {
+  public:
+    TdcStrip() :_ch(0),_dif(0), _str(0),_t0(0),_t1(0),_shift(0){;}
+    TdcStrip(uint16_t dif,uint16_t st,double t0,double t1,double shift=0) :_dif(dif), _str(st),_t0(t0),_t1(t1),_shift(shift),_ch(1) {;}
+    TdcStrip(uint16_t ch,uint16_t dif,uint16_t st,double t0,double t1,double shift=0) :_ch(ch),_dif(dif), _str(st),_t0(t0),_t1(t1),_shift(shift) {;}
+    inline uint16_t strip() const {return _str;}
+    inline uint16_t chamber() const {return _ch;}
+    inline uint16_t dif() const {return _dif;}
+    inline double t0() const {return _t0;}
+    inline double t1() const {return _t1;}
+    inline double shift() const {return _shift;}
+    #ifdef SMALLPCB
+    inline double ypos() const {return (_t0-_t1-_shift)/0.125;}
+    inline double xpos() const {
+      if (_dif%2==1) return -1*(_str*0.4+0.2);
+      else return +1*(_str*0.4+0.2);
+    }
+    #else
+    inline double ypos() const {return (_t0-_t1-_shift)/1.;}
+    inline double xpos() const {
+      return _str*1.0;
+    }
+
+    #endif
+
+    
+  private:
+    uint16_t _dif,_str,_ch;
+    double _t0,_t1,_shift;
+
+  };
+  // DTA 2.5 DTY 1.5 puis 5. 5.  
+#define DTA 5.
+#define DTY 8.5
+  class TdcCluster
+  {
+  public:
+    TdcCluster(): _x(0),_y(0),_t0(0),_t1(0) { _strips.clear();}
+    bool isAdjacent(TdcStrip& s,float step=2)
+    {
+
+      for (auto x:_strips)
+	{
+	//if (abs(x.xpos()-s.xpos())<step && abs(x.ypos()-s.ypos())<2)
+	  if (x.chamber()!=s.chamber()) continue;
+	float dta=DTA;
+	if (x.dif()!=s.dif()) dta=3*DTA;
+	if (abs(x.xpos()-s.xpos())<step && abs((x.t0()+x.t1())/2-(s.t0()+s.t1())/2)<dta && abs(x.ypos()-s.ypos())<DTY)
+	  {
+	    return true;
+	  }
+	}
+      return false;
+    }
+    void addStrip(TdcStrip& s){
+	_strips.push_back(s);
+	this->calcpos();}
+    void calcpos()
+    {
+
+      std::sort( _strips.begin( ), _strips.end( ), [ ]( const TdcStrip& lhs, const TdcStrip& rhs )
+		 {
+		   return lhs.strip() < rhs.strip();
+		 }
+		 );
+      
+      if (_strips.size()==1) {
+	_x=_strips[0].xpos(); _y=_strips[0].ypos();
+	_t0=_strips[0].t0();
+	_t1=_strips[0].t1();
+
+      }
+      if (_strips.size()==2)
+	{
+	  _x=(_strips[0].xpos()+_strips[1].xpos())/2.;
+	  _y=(_strips[0].ypos()+_strips[1].ypos())/2.;
+	  _t0=(_strips[0].t0()+_strips[1].t0())/2.;
+	  _t1=(_strips[0].t1()+_strips[1].t1())/2.;
+
+	}
+      if (_strips.size()==3) {
+	_x=_strips[1].xpos();
+	_y=_strips[1].ypos();
+	_t0=_strips[1].t0();
+	_t1=_strips[1].t1();
+      }
+      if (_strips.size()==4){
+	_x=(_strips[2].xpos()+_strips[1].xpos())/2.;
+	_y=(_strips[2].ypos()+_strips[1].ypos())/2.;
+	_t0=(_strips[2].t0()+_strips[1].t0())/2.;
+	_t1=(_strips[2].t1()+_strips[1].t1())/2.;
+      }
+      if (_strips.size()>=5 && _strips.size()<=12)
+	{
+	  _x=0;_y=0,_t0=0,_t1=0;
+	  for (int i=2;i<_strips.size()-2;i++)
+	    {
+	      _x+=_strips[i].xpos();
+	      _y+=_strips[i].ypos();
+	      _t0+=_strips[i].t0();
+	      _t1+=_strips[i].t1();
+	    }
+	  _x/=(_strips.size()-4);
+	  _y/=(_strips.size()-4);
+	  _t0/=(_strips.size()-4);
+	  _t1/=(_strips.size()-4);
+
+	}
+    }
+    inline double X(){return _x;}
+    inline double Y(){return _y;}
+    inline double T0(){return _t0;}
+    inline double T1(){return _t1;}
+    inline double TM(){return (_t0+_t1)/2.;}
+    uint32_t size(){return _strips.size();}
+    lmana::TdcStrip& strip(int n) {return _strips[n];}
+    inline uint16_t chamber() const {return (_strips.size()>0)?_strips[0].chamber():0;}
+    inline uint16_t dif() const {return (_strips.size()>0)?_strips[0].dif():0;}
+  private:
+    double _x,_y,_t0,_t1;
+    std::vector<lmana::TdcStrip> _strips;
+
+  };
+};
+
+
 class rbEvent
 {
 public:

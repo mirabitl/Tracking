@@ -44,7 +44,7 @@ class binaryreader : public rbProcessor
     virtual void loadParameters(Json::Value params);
     void processCoincidence(rbEvent* e,uint32_t ibc);
     int TPrincipalComponents(double result[21],float zmin,float zmax);
-
+    bool stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::string subdir);
   private:
     uint32_t _run,_event,_totalSize;
     int32_t _fdOut;
@@ -56,7 +56,9 @@ class binaryreader : public rbProcessor
 
 
     recoTrack top_tk;
-   
+    std::vector<lmana::TdcStrip> _strips;
+    std::vector<lmana::TdcCluster> _clusters;
+
   };
 
 #endif
