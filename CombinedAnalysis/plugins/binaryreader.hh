@@ -56,9 +56,10 @@ class binaryreader : public rbProcessor
 
 
     recoTrack top_tk;
-    std::vector<lmana::TdcStrip> _strips;
-    std::vector<lmana::TdcCluster> _clusters;
+    std::vector<Lmana::TdcStrip> _strips;
+    std::vector<Lmana::TdcCluster> _clusters;
 
+    ROOT::Math::XYZPoint _pex;
   };
 
 #endif

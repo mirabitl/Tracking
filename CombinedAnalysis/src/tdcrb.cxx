@@ -289,8 +289,6 @@ void tdcrb::read()
   uint64_t _eventChannel[4096*8];
   //  std::vector<lydaq::TdcChannel> _vAll;
   uint32_t _eventChannels;
-  _geo->fillFebs(_run);
-  _geo->fillAlign(_run);
   std::map<uint32_t,uint64_t> mbx;
   mbx.clear();
   while (_started)
@@ -536,7 +534,7 @@ void tdcrb::read()
 	      if (hacqtim==NULL)
 		{
 		  hacqtim=_rh->BookTH1("/BR/AcquistionTime",10000.,0.,10000.);
-		  hrealtim=_rh->BookTH1("/BR/RealTime",10000.,0.,2.);
+		  hrealtim=_rh->BookTH1("/BR/RealTime",10000.,0.,4.);
 		  hmt=_rh->BookTH1("/BR/MaxTime",10000.,0.,5.);
 		  hc=_rh->BookTH1("/BR/Count",100.,-0.1,99.9);
 		  hcs=_rh->BookTH1("/BR/PadCountSelected",100.,-0.1,99.9);
@@ -557,6 +555,7 @@ void tdcrb::read()
 		{
 		  sdhcal::PMRPtr* d = (*it);
 		  uint32_t chid= _geo->difInfo(d->getID()).chamber;
+		  fprintf(stderr,"CHAMBER %d %d \n",d->getID(),chid);
 		  // LMTest      uint32_t bc = rint(f->getBunchCrossingTime()/DCBufferReader::getDAQ_BC_Period());
 		  //uint32_t chid = 1;
 		  uint32_t window=2;
@@ -568,7 +567,7 @@ void tdcrb::read()
 		  for (uint32_t ifra=0;ifra<d->getNumberOfFrames();ifra++)
 		    {
 		      int32_t bc=d->getFrameTimeToTrigger(ifra);
-		      //bc=d->getFrameBCID(ifra);
+		      bc=d->getFrameBCID(ifra);
 		      //printf(" Frame BCID ch %d dif %d asic %d framebc %d difbc %d delta %d \n",chid,d->getID(),d->getFrameAsicHeader(ifra),d->getFrameBCID(ifra),d->getBCID(),bc);
 		      if ((bc*2E-7)>mt) mt=bc*2E-7;
 		      fflush(stdout);
@@ -682,10 +681,11 @@ void tdcrb::read()
 	  bool coinc=false;
 	  for (auto x:_theEvent.tCount())
 	    {
+
 	      if (x.second.count()>2)
 		{
-		fprintf(stderr," bcid %d cnt %d \n",x.first,x.second.count());
-		auto tf=_theEvent.tFrame()[x.first];
+		  fprintf(stderr," bcid %d cnt %d \n",x.first,x.second.count());
+		  auto tf=_theEvent.tFrame()[x.first];
 		 for (auto it=tf.begin();it!=tf.end();it++)
 		   {
 		     std::cout<<it->first->getID()<<" "<<it->first->getFrameTimeToTrigger(it->second)<<std::endl;
@@ -693,7 +693,7 @@ void tdcrb::read()
 		coinc=true;
 		}
 	    }
-	  //if (coinc) getchar();
+	  //getchar();
 	  //if (oneselected)
 	    for (auto p:_processors)
 	      p->processEvent(&_theEvent);

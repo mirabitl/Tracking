@@ -20,7 +20,7 @@
 #include "HoughLocal.hh"
 
 using namespace lydaq;
-using namespace lmana;
+using namespace Lmana;
 binaryreader::binaryreader() : _run(0),_started(false),_fdOut(-1),_totalSize(0),_event(0) {}
 void binaryreader::init(uint32_t run)
 {
@@ -55,6 +55,7 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
   TH2* hzy=_rh->GetTH2("/gric/ZY");
   TH2* hxy=_rh->GetTH2("/gric/XY");
   TH2* hxyt=_rh->GetTH2("/gric/XYT");
+  TH2* hxyf=_rh->GetTH2("/gric/XYF");
   TH1* hcount=_rh->GetTH1("/gric/Count");
   TH1* hdt=_rh->GetTH1("/gric/dt");
   TH1* hch=_rh->GetTH1("/gric/tdcchannel");
@@ -67,8 +68,9 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
       hinti=_rh->BookTH1("/gric/InTime",70,-0.1,69.9);
       hzx=_rh->BookTH2("/gric/ZX",400,0.,200.,100.,0.,100.);
       hzy=_rh->BookTH2("/gric/ZY",400,0.,200.,80.,0.,80.);
-      hxy=_rh->BookTH2("/gric/XY",100,0.,50.,70.,0.,35.);
-      hxyt=_rh->BookTH2("/gric/XYT",100,0.,50.,70.,0.,35.);
+      hxy=_rh->BookTH2("/gric/XY",100,0.,50.,100.,0.,100.);
+      hxyt=_rh->BookTH2("/gric/XYT",100,0.,50.,100.,0.,100.);
+      hxyf=_rh->BookTH2("/gric/XYF",100,0.,50.,100.,0.,100.);
 	    }
   hzx->Reset();
   hzy->Reset();
@@ -152,7 +154,7 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
 	}
     }
   // Ask at least 3 points
-  if (top_tk.size()>=3) {
+  if (top_tk.size()>=4) {
     top_tk.regression();
     top_tk.calculateChi2();
   }
@@ -165,8 +167,9 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
 	   top_tk.orig().X(),
 	 top_tk.orig().Y());
 
-  ROOT::Math::XYZPoint p=top_tk.extrapolate(85);
-  hxy->Fill(p.X(),p.Y());
+  ROOT::Math::XYZPoint p=top_tk.extrapolate(82);
+  _pex.SetXYZ(33-p.Y(),50-p.X(),p.Z());
+  hxy->Fill(_pex.X(),_pex.Y());
   hcount->Fill(9.);
   printf("NCH %d \n",e->tdcChannels().size());
   // getchar();
@@ -190,14 +193,20 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
       hdt->Fill(ddt);
 
     }
-  if (p.Y()<20.)
-    hinti->Fill(ninti*1.);
+
+  hinti->Fill(ninti*1.);
   if (ninti>0) {
 
-    hxyt->Fill(p.X(),p.Y());
-    this->stripStudy(vChannel,"FEB");
-  }
+    hxyt->Fill(_pex.X(),_pex.Y());
 
+  }
+  _run=e->run();
+
+  bool cfound=this->stripStudy(vChannel,"FEB");
+  if (cfound)
+    {
+      hxyf->Fill(_pex.X(),_pex.Y());
+    }
   //getchar();
   if (_geoRoot["general"]["display"].asUInt()==0) return;
   if (TCHits==NULL)
@@ -230,9 +239,30 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
 }
 void binaryreader::processEvent(rbEvent* e)
 {
+  if (_event==0)
+    {
+      _geo->fillFebs(e->run());
+      _geo->fillAlign(e->run());
+      
+      for (int i=0;i<255;i++)
+	{
+	  if (_geo->feb(i).isEmpty()) continue;
+	  printf("FEB %d %d %d \n",i,_geo->feb(i).id,_geo->feb(i).tdc2strip[15]);
+	  
+
+	}
+      
+
+    }
+
+  _event=e->gtc();
+  
   uint8_t u[16],v[16],w[16];
   if (!_started) return;
   printf("BR => %d %d %d \n",e->run(),e->event(),e->gtc());
+
+
+  
 
   std::map<uint32_t,std::vector<uint32_t> > tm;tm.clear();
   uint32_t maxt=0;
@@ -634,7 +664,7 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 {
   float ch1_dt[128];
 
-
+  bool clusterFound=false;
   memset(ch1_dt,0,128*sizeof(float));
 
   uint32_t triggerChannel=1;
@@ -652,7 +682,7 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
       // Drop Trigger Channel
       if (x->channel()==1) continue;
       std::stringstream sraw;
-      sraw<<"/run"<<_run<<"/"<<subdir<<"/Chamber"<<chamber<<"/Raw/";
+      sraw<<"/"<<subdir<<"/Chamber"<<chamber<<"/Raw/";
       TH1* hchan=_rh->GetTH1(sraw.str()+"Channels");
       TH1* hstrips=_rh->GetTH1(sraw.str()+"Strips");
       if (hchan==NULL)
@@ -669,8 +699,9 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 	  //dtm[x->feb()][ 
       c_strip[x->detectorStrip(_geo->feb(x->feb()))].push_back(&(*x));
 
-      
-      printf(" Channel %d Strip %d Shift %d Side %d %f raw %f\n",x->channel(),x->detectorStrip(_geo->feb(x->feb())),_geo->feb(x->feb()).stripShift,x->side(),x->pedSubTime(_geo->feb(x->feb())),x->pedSubTime(_geo->feb(x->feb())));
+      //jsonFebInfo f=_geo->feb(x->feb());
+      //for (int ic=0;ic<49;ic++) std::cout<<f.tdc2strip[ic]<<" ";
+      printf("FEB %d Channel %d Strip %d Shift %d Side %d %f raw %f\n",x->feb(),x->channel(),x->detectorStrip(_geo->feb(x->feb())),_geo->feb(x->feb()).stripShift,x->side(_geo->feb(x->feb())),x->pedSubTime(_geo->feb(x->feb())),x->pedSubTime(_geo->feb(x->feb())));
 	      //if (x->feb()==11)
       
 
@@ -679,10 +710,9 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 	  
       nch++;
     }
-      // if (nch)
-      // 	getchar();
+  //if (nch) getchar();
   std::stringstream srcc;
-  srcc<<"/run"<<_run<<"/"<<subdir<<"/Chamber"<<chamber<<"/";
+  srcc<<"/"<<subdir<<"/Chamber"<<chamber<<"/";
       
   TH1* hfr=_rh->GetTH1(srcc.str()+"FebCount");
   TH1* hfrs=_rh->GetTH1(srcc.str()+"FebCountSel");
@@ -710,15 +740,16 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
       if (c_strip[i].size()==0) continue;
       for (auto x:c_strip[i])
 	{
-	  if (x->feb()==11) continue;
-	  if (x->side(_geo->feb(x->feb()))==1) continue;
+
+	  if (x->side(_geo->feb(x->feb()))==0) continue;
 	  for (int j=0;j<128;j++)
 	    {
 	      if (c_strip[j].size()==0) continue;
 	      for (auto y:c_strip[j])
 		{
+		  if (y->side(_geo->feb(y->feb()))==1) continue;
 		  if (x->channel()!=y->channel())
-		    hcor->Fill(x->channel()+0.2,y->channel()+0.2);
+		    hcor->Fill((x->feb()-14)*48+x->channel()+0.2,(y->feb()-14)*48+y->channel()+0.2);
 		}
 	    }
 	}
@@ -734,6 +765,7 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
       std::bitset<64> stb(0);
       std::bitset<64> stb0(0);
       std::bitset<64> stb1(0);
+#ifdef ALGOSTANDARD
       for (int i=0;i<128;i++)
 	{
 	  if (c_strip[i].size()>0)
@@ -753,29 +785,40 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 		  stb1.set(i,1);
 	    }
 	
-	  if (c_strip[i].size()>2) dostop=true;
-
+	  if (c_strip[i].size()>2)
+	    {
+	      dostop=true;
+	      fprintf(stderr," too many hits \n");
+	      for (auto x:c_strip[i])
+		{
+		  //  fprintf(stderr,"\t %d %d %d %f %d \n",x->feb(),x->channel(), x->side(_geo->feb(x->feb())),x->tdcTime(),x->detectorStrip(_geo->feb(x->feb())));
+		}
+	      //getchar();
+	    }
 	  if (c_strip[i].size()==2)
 	    {
 	      double t0=-1,t1=-1;
 	      for (auto x:c_strip[i])
 		{
 
-		  //fprintf(stderr,"\t %d %d %f %f \n",x->channel(), x->side(_geo->feb(x->feb())),x->tdcTime(),x->tdcTime()-ttime);
+		  //fprintf(stderr,"\t %d %d %f %f \n",x->channel(), x->side(_geo->feb(x->feb())),x->tdcTime(),x->tdcTime());
 		  double dt=_geo->feb(x->feb()).dtc[x->channel()];
+
+
 		  if (t0<0 &&  x->side(_geo->feb(x->feb()))==0)
 		    {
 		      t0=x->pedSubTime(_geo->feb(x->feb()))-dt;
 
-		      //printf("T0 %d %d %d %d %f %f dt=%f \n",x->feb(),x->channel(),x->coarse(),x->fine(),x->tdcTime(),t0,dt);
+		      printf("T0 %d %d %d %d %f %f dt=%f \n",x->feb(),x->channel(),x->coarse(),x->fine(),x->tdcTime(),t0,dt);
 		    }
 		  if (t1<0 &&  x->side(_geo->feb(x->feb()))==1)
 		    {
 		      t1=x->pedSubTime(_geo->feb(x->feb()))-dt;
-		      //printf("T1 %d %d %d %d %f %f \n",x->feb(),x->channel(),x->coarse(),x->fine(),x->tdcTime(),t1);
+		      printf("T1 %d %d %d %d %f %f \n",x->feb(),x->channel(),x->coarse(),x->fine(),x->tdcTime(),t1);
 		    }
 		  if(t0>0 && t1>0 )
 		    {
+		      //if (abs(t1-t0)<5) continue;
 		      febc[x->feb()]++;
 		      std::cout<<x->feb()<<" FEBC "<< febc[x->feb()]<<std::endl;
 		      if (_geo->feb(x->feb()).polarity==-1)
@@ -785,17 +828,16 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 			  t0=tt;
 			}
 		    
-		      //lmana::TdcStrip ts(_geo->feb(x->feb()).chamber,x->feb(),x->detectorStrip(_geo->feb(x->feb())),t0,t1,_geo->feb(x->feb()).timePedestal[x->detectorStrip( _geo->feb(x->feb()))]);
+		      //Lmana::TdcStrip ts(_geo->feb(x->feb()).chamber,x->feb(),x->detectorStrip(_geo->feb(x->feb())),t0,t1,_geo->feb(x->feb()).timePedestal[x->detectorStrip( _geo->feb(x->feb()))]);
 		      if (chamber==1)
 			{
-			  lmana::TdcStrip ts(_geo->feb(x->feb()).chamber,x->feb(),x->detectorStrip(_geo->feb(x->feb())),t0,t1,_geo->feb(x->feb()).timePedestal[x->detectorStrip( _geo->feb(x->feb()))]);
+			  Lmana::TdcStrip ts(_geo->feb(x->feb()).chamber,x->feb(),x->detectorStrip(_geo->feb(x->feb())),t0,t1,_geo->feb(x->feb()).timePedestal[x->detectorStrip( _geo->feb(x->feb()))]);
 					     //ch1_dt[x->detectorStrip( _geo->feb(x->feb()))+1]);
-			  if (abs(ts.ypos())>-1000000.) // Usually >1 
 			    _strips.push_back(ts);
 			}
 		      // else
 		      // 	{
-		      // 	  lmana::TdcStrip ts(_geo->feb(x->feb()).chamber,x->feb(),x->detectorStrip(_geo->feb(x->feb())),t0,t1,ch2_dt[x->detectorStrip( _geo->feb(x->feb()))+1]);
+		      // 	  Lmana::TdcStrip ts(_geo->feb(x->feb()).chamber,x->feb(),x->detectorStrip(_geo->feb(x->feb())),t0,t1,ch2_dt[x->detectorStrip( _geo->feb(x->feb()))+1]);
 		      // 	  _strips.push_back(ts);
 		      // 	}
 
@@ -807,23 +849,69 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 	    
 	    }
 	}
-      // getchar();
+#else
+      for (int i=0;i<128;i++)
+	{
+	  if (c_strip[i].size()>0)
+	    {
+	      fprintf(stderr,"Chamber %d Strip %d # %d \n",chamber,i,c_strip[i].size());
+	      nstrip++;
+	      if (i<48)
+		stb.set(i,1);
+	    }
+	  else
+	    continue;
+	  for (int ic=0;ic<c_strip[i].size();ic++)
+	    {
+	      lydaq::TdcChannel* x =c_strip[i][ic];
+	      if (x->side(_geo->feb(x->feb()))!=1) continue;
+	      double t1=x->pedSubTime(_geo->feb(x->feb()));
+	      //fprintf(stderr,"Side 1 FEB %d Channel %d Strip %d Shift %d Side %d %f raw %f\n",x->feb(),x->channel(),x->detectorStrip(_geo->feb(x->feb())),_geo->feb(x->feb()).stripShift,x->side(_geo->feb(x->feb())),x->pedSubTime(_geo->feb(x->feb())),t0);
+	      for (int jc=0;jc<c_strip[i].size();jc++)
+		{
+		  lydaq::TdcChannel* y =c_strip[i][jc];
+		  if (y->side(_geo->feb(y->feb()))!=0) continue;
+		  if (y->used()) continue;
+		  double t0=y->pedSubTime(_geo->feb(y->feb()));
+		  //  fprintf(stderr,"Side 0 FEB %d Channel %d Strip %d Shift %d Side %d %f raw %f\n",y->feb(),y->channel(),y->detectorStrip(_geo->feb(y->feb())),_geo->feb(y->feb()).stripShift,y->side(_geo->feb(y->feb())),y->pedSubTime(_geo->feb(y->feb())),t1);
+		  //fprintf(stderr,"Strip  t0 %f  \n",t0);
+		  //fprintf(stderr,"Strip  t1 %f  \n",t1); 
+
+		  Lmana::TdcStrip ts(_geo->feb(x->feb()).chamber,x->feb(),x->detectorStrip(_geo->feb(x->feb())),t0,t1,_geo->feb(x->feb()).timePedestal[x->detectorStrip( _geo->feb(x->feb()))]);
+		  //if (i==1008)
+		    fprintf(stderr,"Strip %d c1 %d c0 %d  t1 %f t0 %f ypos %f expected %f \n",
+			    i,x->channel(),y->channel(),t1,t0,ts.ypos(),_pex.Y()); 
+		  if (ts.ypos()<-10 || ts.ypos()>170.) continue;
+		  x->setUsed(true);
+		  y->setUsed(true);
+		   _strips.push_back(ts);
+		}
+	    }
+	  
+	  if (i==1008)
+	    getchar();
+
+
+	}
+	
+#endif
+
       for (int i=0;i<48;i++)
 	if (febc[i]>0) hfrs->Fill(i*1.);
 
-      if (dostop) return true;
-      if (stb.count()>48) return true;
+      if (dostop) return clusterFound;
+      if (stb.count()>48) return clusterFound;
       noisy=(stb.count()>48);
       //for (int i=0;i<48;i++)
       // if (febc[i]>=10) return true;
       //std::cout<<stb<<std::endl;
-      std::vector<lmana::TdcCluster> vclus;
+      std::vector<Lmana::TdcCluster> vclus;
       vclus.clear();
       float step=2.;
       //if (chamber==1) step=4.;
       for (auto it=_strips.begin();it!=_strips.end();it++)
 	{
-	  //fprintf(stderr,"%d %d %f %f %f %f \n",it->chamber(),it->strip(),it->xpos(),it->ypos(),it->t0(),it->t1());
+	  fprintf(stderr,"%d %d %f %f %f %f \n",it->chamber(),it->strip(),it->xpos(),it->ypos(),it->t0(),it->t1());
 	  if (it->chamber()!=chamber) continue;
 	  //	      if (it->ypos()<-10 || it->ypos()>-0.2) continue;
 	  bool found=false;
@@ -838,7 +926,7 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 	    }
 	  if(!found)
 	    {
-	      lmana::TdcCluster c;
+	      Lmana::TdcCluster c;
 	      c.addStrip((*it));
 	      vclus.push_back(c);
 	    }
@@ -846,7 +934,8 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 
       // Merge adjacent cluster
       bool merged=false;
-      //printf("vclus size %d \n",vclus.size());
+      printf("vclus size %d \n",vclus.size());
+
       for (auto it=vclus.begin();it!=vclus.end();it++)
 	{
 	  for (auto jt=it+1;jt!=vclus.end();)
@@ -871,17 +960,19 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 		++jt;
 	    }
 	}
-      //printf("vclus size after %d \n",vclus.size());
+      printf("vclus size after %d \n",vclus.size());
+      //getchar();
       //if (merged)
       //	getchar();
       std::stringstream src;
-      src<<"/run"<<_run<<"/"<<subdir<<"/Chamber"<<chamber<<"/ClusterNew/";
+      src<<"/"<<subdir<<"/Chamber"<<chamber<<"/ClusterNew/";
 		  
       TH2* hposs=_rh->GetTH2(src.str()+"XYStrip");
       TH2* hposc=_rh->GetTH2(src.str()+"XY");
       TH2* hposc1=_rh->GetTH2(src.str()+"XY1");
       TH2* hposcm=_rh->GetTH2(src.str()+"XYMore");
       TH2* hposcma=_rh->GetTH2(src.str()+"XYMax");
+      TH2* hposdma=_rh->GetTH2(src.str()+"DIST");
       TH2* hposx=_rh->GetTH2(src.str()+"XYX");
       TH1* hncl=_rh->GetTH1(src.str()+"Clusters");
       TH1* hmulc=_rh->GetTH1(src.str()+"ClusterSize");
@@ -897,12 +988,13 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
       if (hposc==NULL)
 	{
 	      
-	  hposc=_rh->BookTH2(src.str()+"XY",128,0.,128.,256,-30.,30.);
-	  hposs=_rh->BookTH2(src.str()+"XYStrip",128,0.,128.,256,-30.,30.);
-	  hposc1=_rh->BookTH2(src.str()+"XY1",128,0.,128.,256,-30.,30.);
-	  hposcm=_rh->BookTH2(src.str()+"XYMore",128,0.,128.,256,-30.,30.);
-	  hposcma=_rh->BookTH2(src.str()+"XYMax",128,0.,128.,3000,-30.,30.);
-	  hposx=_rh->BookTH2(src.str()+"XYX",128,0.,128.,600,-160.,160.);
+	  hposc=_rh->BookTH2(src.str()+"XY",48,0.,48.,420,-10.,200.);
+	  hposs=_rh->BookTH2(src.str()+"XYStrip",48,0.,48.,420,-10.,200.);
+	  hposc1=_rh->BookTH2(src.str()+"XY1",48,0.,48.,420,-10.,200.);
+	  hposcm=_rh->BookTH2(src.str()+"XYMore",48,0.,48.,420,-10.,200.);
+	  hposcma=_rh->BookTH2(src.str()+"XYMax",48,0.,48.,420,-10.,200.);
+	  hposdma=_rh->BookTH2(src.str()+"DIST",100,-10.,10.,600,-120.,120.);
+	  hposx=_rh->BookTH2(src.str()+"XYX",48,0.,48.,420,-10.,200.);
 	  hncl=_rh->BookTH1(src.str()+"Clusters",32,0.,32.);
 	  hmulc=_rh->BookTH1(src.str()+"ClusterSize",32,0.,32.);
 	  hmulc1=_rh->BookTH1(src.str()+"ClusterSize1",32,0.,32.);
@@ -911,8 +1003,8 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 	  hns1=_rh->BookTH1(src.str()+"nstrip1",48,0.,48.);
 	  hns2=_rh->BookTH1(src.str()+"nstrip2",48,0.,48.);
 	  htoa=_rh->BookTH1(src.str()+"TOA",100,-570.,-600.);
-	  hdtr0=_rh->BookTH1(src.str()+"DT0",20000,-1000.,0.);
-	  hdtr1=_rh->BookTH1(src.str()+"DT1",20000,-1000.,0.);
+	  hdtr0=_rh->BookTH1(src.str()+"DT0",400,-20.,20.);
+	  hdtr1=_rh->BookTH1(src.str()+"DT1",20000,-2000.,2000.);
 	}
       hns->Fill(nstrip);
       hns0->Fill(stb0.count());
@@ -922,6 +1014,8 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
       //if (vclus.size()>0)
       hncl->Fill(vclus.size()*1.);
       uint32_t maxs=0;
+      double distmin=99999999.;
+      double tmsel=0;
       for (auto x:vclus)
 	{
 	  // if (vclus.size()>1)
@@ -939,8 +1033,8 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 	    for (int i=0;i<x.size();i++)
 	      {
 		htoa->Fill((x.strip(i).t0()+x.strip(i).t1())/2.);
-		hdtr0->Fill(x.strip(i).t0());
-		hdtr1->Fill(x.strip(i).t1());
+		//hdtr0->Fill(x.strip(i).t0());
+		//hdtr1->Fill(x.strip(i).t1());
 	      }
 
 	  if (x.size()>30) continue;
@@ -953,22 +1047,52 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 	  
 	  hmulc->Fill(x.size()*1.);
 	  //printf("%d %f %f \n",x.size(),x.X(),x.Y());
+	  double dist=sqrt((_pex.X()-x.X())*(_pex.X()-x.X())+
+			   (_pex.Y()-x.Y())*(_pex.Y()-x.Y()));
+	  if (dist<distmin)
+	    {
+	      distmin=dist;
+	      tmsel=x.TM();
+	    }
+      
 	  if (x.size()>maxs) maxs=x.size();
 	}
       //if (vclus.size()>1) getchar();
       int nc=0;
+      // float dy[48]={0.,
+      // 		    63.6,-18.1,-13.1,27.1,-39.5,22.2,4.9,39.5,12.3,8.6,29.7,22.4,
+      // 		    -16.1,-30.3,0,-42.8,65.4,4.3,-1.5,56.0,-48.1,30.3,39.0,-20.9,
+      // 		    -12.0,36.1,25.8,16.8,5.1,13.9,32.1,-31.11,
+      // 		    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+      float dy[33]={0.,
+      		    62.8,-6.9,-10.9,49.3,-28.8,26.5,14.1,-2.3,
+		    5.9,29.6,-3.2,13.7,23.1,10.3,0,0,
+		    43.3,4.7,-0.9,56.5,-47.9,54.2,40.0,-20.1,
+		    11.6,36.4,25.9,16.7,5.1,14.0,31.9,-30.6};
+      memset(dy,0,33*sizeof(float));
+      //clusterFound=vclus.size()>0;
       for (auto x:vclus)
 	{
 	  nc++;
 	  if (x.size()>16) continue;
-	  if (x.size()==maxs)
-	    {
-	      hposcma->Fill(x.X(),x.Y());
-	      float L=160.;
-	      float v=160./8.7;
-	      float xl=(L-x.Y()*v)/2.-L/2.;
-	      hposx->Fill(x.X(),xl);
+	  float L=160.;
+	  float v=160./8.7;
+	  float xl=(L-x.Y()*v)/2.+L/2.;
+	  
 
+	  hposx->Fill(x.X(),x.Y());
+	  fprintf(stderr,"Xext %f X %f Yex %f Y %f \n",_pex.X(),x.X(),_pex.Y(),x.Y());
+	  x.Print();
+	  if (abs(x.X()-_pex.X())>5) continue;
+	  //getchar();
+
+	  if (x.TM()==tmsel)
+	    {
+	      //hposcma->Fill(x.X(),x.Y());
+	      hposcma->Fill(x.X(),x.Y()+dy[int(x.X())]);
+	      hposdma->Fill(x.X()-_pex.X(),x.Y()+dy[int(x.X())]-_pex.Y());
+	      clusterFound=abs(x.X()-_pex.X())<5&& abs(x.Y()+dy[int(x.X())]-_pex.Y())<9.5 ;
+	      hdtr0->Fill(x.X()-_pex.X());
 	      for (int i=0;i<x.size();i++)
 		{
 		  hposs->Fill(x.strip(i).xpos(),x.strip(i).ypos());
@@ -977,8 +1101,13 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 		  //std:cout<<srcs.str()<<std::endl;
 		  TH1* hdts=_rh->GetTH1(srcs.str());
 		  if (hdts==NULL)
-		    hdts=_rh->BookTH1(srcs.str(),300,-30,30.);
-		  hdts->Fill(x.strip(i).ypos());
+		    hdts=_rh->BookTH1(srcs.str(),300,-130,130.);
+		  
+		  float L=160.;
+		  float v=160./8.7;
+		  float xl=(L-x.strip(i).ypos()*v)/2.+L/2.;
+
+		  hdts->Fill(_pex.Y()-x.strip(i).ypos()-dy[int(x.X())]);
 		}
 	      break;
 	    }
@@ -992,6 +1121,8 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 	  if (ncp==nc) continue;
 	  hposcm->Fill(x.X(),x.Y());  
 	}
+	//if (nstrip>0&& !clusterFound)
+	//	getchar();
       // if (_display)
       // 	{
       // 	  this->drawHits(chamber);
@@ -999,7 +1130,7 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
       // 	}
 
 
-  return false;
+  return clusterFound;
 }
 
 

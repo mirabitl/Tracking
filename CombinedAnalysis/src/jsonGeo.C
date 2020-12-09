@@ -66,6 +66,7 @@ void jsonGeo::init(Json::Value r)
   }
 void jsonGeo::fillFebs(uint32_t run)
 {
+  std::cout<<" Fill FEBS for run "<<run;
   if (_jroot.isMember("febs"))
     {
       const Json::Value& books = _jroot["febs"];
@@ -73,7 +74,7 @@ void jsonGeo::fillFebs(uint32_t run)
       for (Json::ValueConstIterator it = books.begin(); it != books.end(); ++it)
 	{
 	  const Json::Value& jfeb = *it;
-	  std::cout<<run<<" "<<jfeb["first"].asUInt()<<" "<<jfeb["last"].asUInt()<<" "<<jfeb["id"].asUInt()<<std::endl;
+	  std::cout<<run<<"  found "<<jfeb["first"].asUInt()<<" "<<jfeb["last"].asUInt()<<" "<<jfeb["id"].asUInt()<<std::endl;
 	  if (jfeb["first"].asUInt()>run) continue;
 	  if (jfeb["last"].asUInt()<run) continue;
 	  uint32_t feb_id=jfeb["id"].asUInt();
@@ -86,6 +87,7 @@ void jsonGeo::fillFebs(uint32_t run)
 	  for (int i=0;i<49;i++)
 	    {
 	      _jFebs[feb_id].tdc2strip[i]=jfeb["tdc2strip"][i].asUInt();
+	      std::cout<<" strip "<<i<<" "<< _jFebs[feb_id].tdc2strip[i]<<std::endl;
 	      _jFebs[feb_id].tdc2side[i]=jfeb["side"][i].asUInt();
 	  
 	      if (jfeb.isMember("dtc"))
@@ -103,7 +105,7 @@ void jsonGeo::fillFebs(uint32_t run)
 	  _jFebs[feb_id].dt[0]=jfeb["dt0"].asDouble();
 	  _jFebs[feb_id].dt[1]=jfeb["dt1"].asDouble();
 
-	  for (int i=0;i<24;i++)
+	  for (int i=0;i<34;i++)
 	    _jFebs[feb_id].timePedestal[i]=jfeb["delta"][i].asDouble();
 	}
     }
@@ -111,7 +113,7 @@ void jsonGeo::fillFebs(uint32_t run)
 }
 void jsonGeo::fillAlign(uint32_t run)
 {
-  //printf("On rentre dasn fillAlign\n");
+  printf("On rentre dasn fillAlign %d\n",run);
   if (_jroot.isMember("align"))
     {
       const Json::Value& books = _jroot["align"];
