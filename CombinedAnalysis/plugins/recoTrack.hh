@@ -105,7 +105,7 @@ public:
     return os;
   }
   bool planUsed(uint32_t p){return _plh[p]==1;}
-
+  uint64_t plans(){return _plh.to_ulong();}
 private:
   bool _valid;
   float zmin_,zmax_;

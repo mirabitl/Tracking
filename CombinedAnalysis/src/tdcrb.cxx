@@ -677,14 +677,14 @@ void tdcrb::read()
 	      
 
 	    }
-	  printf(" TCOUNT %d TMAP %d \n",_theEvent.tCount().size(),_theEvent.tFrame().size());
+	  printf(" TCOUNT %ld TMAP %ld \n",_theEvent.tCount().size(),_theEvent.tFrame().size());
 	  bool coinc=false;
 	  for (auto x:_theEvent.tCount())
 	    {
 
 	      if (x.second.count()>2)
 		{
-		  fprintf(stderr," bcid %d cnt %d \n",x.first,x.second.count());
+		  fprintf(stderr," bcid %d cnt %ld \n",x.first,x.second.count());
 		  auto tf=_theEvent.tFrame()[x.first];
 		 for (auto it=tf.begin();it!=tf.end();it++)
 		   {

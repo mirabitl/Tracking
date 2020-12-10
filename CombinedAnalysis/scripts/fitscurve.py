@@ -4,7 +4,7 @@ import json
 import math
 import time
 from array import array
-
+import numpy as np
 class prettyfloat(float):
     def __repr__(self):
         return "%0.2f" % self
@@ -30,64 +30,121 @@ def calApp(V,P,T):
   print 1-(0.2+0.8*P/990.*293./T)
   return  V*(0.2+0.8*P/990.*293./T)
 
-def getdtc(run,chamber,sub=""):
-  c=TCanvas()
+def getdy(run,sub="/tmp/"):
+  c=TCanvas("irpc","Alignement Studies",545,842)
   f82=TFile(sub+"histo%d_0.root" % run);
-  r0=[]
-  r1=[]
-  for i in range(0,48):
-    r0.append(0)
-    r1.append(0)
-  ht0=None
-  ht1=None
-  if (chamber==1):
-      f82.cd("/Clusters/ch1")
-      ht0=f82.Get("/Clusters/ch1/T0")
-      ht1=f82.Get("/Clusters/ch1/T1")
-      ht0.Draw()
-      c.Modified()
-      c.Update()
-      val=raw_input()
-  if (chamber==2):
-      f82.cd("/Clusters/ch2")
-      ht0=f82.Get("/Clusters/ch2/T0")
-      ht1=f82.Get("/Clusters/ch2/T1")
+  f82.cd("/Align")
+  res=[]
+  for i in range(48):
+    res.append(0)
+  for ist in range(1,33):
+    hst=f82.Get("/Align/strip%d" % ist)
+    
+    if (hst==None):
+      continue
+    if (hst.GetEntries()<100):
+      hst.Rebin(2)
+    xm=-100000.
+    maxh=0
+    for ib in range(1,hst.GetNbinsX()):
+      if (hst.GetBinContent(ib)>maxh):
+        maxh=hst.GetBinContent(ib)
+        xm=hst.GetXaxis().GetBinCenter(ib)
+    scfit=TF1("scfit","gaus",xm-10,xm-10)
+    hst.Fit("scfit","","",xm-10,xm+10);
+    dtmean=scfit.GetParameter(1)
+    dtres=scfit.GetParameter(2)
+    print ist,hst.GetEntries(),hst.GetMean(),xm,dtmean,dtres
+    res[ist]=dtmean
+    c.cd()
+    hst.Draw()
+    c.Modified()
+    c.Update()
+    #val=raw_input()
+  y=np.array(res)
+  #np.set_printoptions(precision=1)
+  np.set_printoptions(formatter={'float': '{: 0.2f}'.format})
+  print y
 
-  scfit=TF1("scfit","gaus",-10.,10.)
-
-  for i in range(0,48):
-    #print "/run%d/Chamber%d/FEB/%d/Side0/channel%d" % (run,chamber,feb,i)
-    hch=ht0.ProjectionY("ch",i,i+1)
-    if (hch.GetEntries()>20):
-        hch.Fit("scfit","Q","");
-        c.cd()
-        hch.Draw()
-        c.Modified()
-        c.Update()
-        val=raw_input()
-        dtmean=scfit.GetParameter(1)
-        dtres=scfit.GetParameter(2)
-        r0[i]=dtmean
-    else:
-        r0[i]=0;
-    hch1=ht1.ProjectionY("ch1",i,i+1)
-    if (hch.GetEntries()>20):
-        hch1.Fit("scfit","Q","");
-        #c.cd()
-        #hch.Draw()
-        #c.Modified()
-        #c.Update()
-        #val=raw_input()
-        dtmean=scfit.GetParameter(1)
-        dtres=scfit.GetParameter(2)
-        r1[i]=dtmean
-    else:
-        r1[i]=0;
-
-  r0 = map(prettyfloat, r0)
-  print '"dt0":',r0
-  r1 = map(prettyfloat, r1)
-  print '"dt1":',r1
+def getratio(run,chamber=1,sub="/tmp/"):
+  c=TCanvas("irpc","IRPC Studies",545,842)
+  c.Divide(2,4)
+  f82=TFile(sub+"histo%d_0.root" % run);
+  f82.cd("/FEB/Chamber%d/Raw" % chamber)
+  hst=f82.Get("/FEB/Chamber%d/Raw/Strips" % chamber)
+  c.cd(1)
+  hst.Draw()
+  hrat=TH1F("hrat","Ratio LR/HR ",50,0,50.)
+  for i in range(1,33):
+    x0=hst.GetBinContent(i+1)
+    x1=hst.GetBinContent(i+1+48)
+    r=0
+    if (x0>0):
+      r=x1/x0
+      print x0,x1,r
+    hrat.SetBinContent(i+1,r)
+  c.cd(2)
+  hrat.Draw()
+  c.Modified()
+  c.Update()
+  val=raw_input()
+  f82.cd("/gric")
+  hxy=f82.Get("/gric/XY")
+  hxy.SetTitle(" 4 points Track extrapolation to the iRPC")
+  hxyf=f82.Get("/gric/XYF")
+  hxyf.SetTitle(" 4 points Track extrapolation to the iRPC when cluster found nearby (5cm,20cm)")
+  hxyt=f82.Get("/gric/XYT")
+  efft=hxyt.GetEntries()/hxy.GetEntries()
+  effo=hxyf.GetEntries()/hxy.GetEntries()
+  print hxy.GetEntries(),efft*100,effo*100
+  c.cd(3)
+  hxy.Draw("COLZ")
+  c.cd(4)
+  hxyf.Draw("COLZ")
+  rbx=1
+  rby=4
+  hxy.Rebin2D(rbx,rby)
+  hxyf.Rebin2D(rbx,rby)
+  hxyt.Rebin2D(rbx,rby)
+  hxy.SetAxisRange(0.,35.,"X")
+  hxy.SetAxisRange(0.,60.,"Y")
+  hxyf.SetAxisRange(0.,35.,"X")
+  hxyf.SetAxisRange(0.,60.,"Y")
+  hxyEff=hxyf.Clone("hxyEff")
+  hxyEff.Divide(hxy)
+  hxyEff.SetTitle("Local Efficiency map")
+  heff=TH1F("heff","Local Efficiency Ntk ext>15",110,0,1.1)
+  heff1=TH1F("heff1","Local Efficiency 1-14",50,0.6,1.1)
+  heff32=TH1F("heff32","Local Efficiency 18-32",50,0.6,1.1)
+  for i in range(1,hxy.GetNbinsX()):
+    for j in range(1,hxy.GetNbinsY()):
+      if (hxy.GetBinContent(i,j)>15):
+        heff.Fill(hxyEff.GetBinContent(i,j))
+        xp=hxy.GetXaxis().GetBinCenter(i)
+        if (xp<15):
+          heff1.Fill(hxyEff.GetBinContent(i,j))
+        if (xp>17):
+          heff32.Fill(hxyEff.GetBinContent(i,j))
+  c.cd(5)
+  heff.Draw()
+  c.Modified()
+  c.Update()
+  val=raw_input()
+  c.cd(6)
+  hxyEff.Draw("COLZ")
+  c.Modified()
+  c.Update()
+  val=raw_input()
+  c.cd(7)
+  heff1.Draw()
+  c.Modified()
+  c.Update()
+  val=raw_input()
+  c.cd(8)
+  heff32.Draw()
+  c.Modified()
+  c.Update()
+  val=raw_input()
 
 def drawtdc(run,sub="Histos/InTime/"):
     c=TCanvas()

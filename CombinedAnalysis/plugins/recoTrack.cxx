@@ -87,11 +87,12 @@ void recoTrack::regression()
   zmax_=-100000;
   double wxt=0;
   double wyt=0;
-
+  _plh.reset();
   for (std::vector<recoPoint*>::iterator ip=_points.begin();ip!=_points.end();ip++)
     {
       if ((*ip)->Z()<zmin_) zmin_=(*ip)->Z();
       if ((*ip)->Z()>zmax_) zmax_=(*ip)->Z();
+      _plh.set((*ip)->plan());
       zbar+=(*ip)->Z();
       z2bar+=(*ip)->Z()*(*ip)->Z();
       zxbar+=(*ip)->Z()*(*ip)->X();

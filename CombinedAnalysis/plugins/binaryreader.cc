@@ -161,6 +161,7 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
   else
     return;
   if (top_tk.orig().X()>47) return;
+  if (top_tk.plans()!=30) return;
   printf(" TK ax %f ay %f bx %f by %f \n",
 	   top_tk.dir().X(),
 	   top_tk.dir().Y(),
@@ -171,7 +172,7 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
   _pex.SetXYZ(33-p.Y(),50-p.X(),p.Z());
   hxy->Fill(_pex.X(),_pex.Y());
   hcount->Fill(9.);
-  printf("NCH %d \n",e->tdcChannels().size());
+  printf("NCH %ld \n",e->tdcChannels().size());
   // getchar();
   uint32_t ninti=0;
   std::vector<lydaq::TdcChannel> vChannel; vChannel.clear();
@@ -326,7 +327,7 @@ void binaryreader::processEvent(rbEvent* e)
   
   bool trigger=false;
   hftm->Fill(maxt*2E-7);
-  printf(" Max time %f \n", maxt);
+  printf(" Max time %d \n", maxt);
   if (maxt<100) return;
   //if (rf) return;
   bool rf=false;
@@ -854,13 +855,14 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 	{
 	  if (c_strip[i].size()>0)
 	    {
-	      fprintf(stderr,"Chamber %d Strip %d # %d \n",chamber,i,c_strip[i].size());
+	      fprintf(stderr,"Chamber %d Strip %d # %ld \n",chamber,i,c_strip[i].size());
 	      nstrip++;
 	      if (i<48)
 		stb.set(i,1);
 	    }
 	  else
 	    continue;
+	  
 	  for (int ic=0;ic<c_strip[i].size();ic++)
 	    {
 	      lydaq::TdcChannel* x =c_strip[i][ic];
@@ -871,7 +873,7 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 		{
 		  lydaq::TdcChannel* y =c_strip[i][jc];
 		  if (y->side(_geo->feb(y->feb()))!=0) continue;
-		  if (y->used()) continue;
+		  //if (y->used()) continue;
 		  double t0=y->pedSubTime(_geo->feb(y->feb()));
 		  //  fprintf(stderr,"Side 0 FEB %d Channel %d Strip %d Shift %d Side %d %f raw %f\n",y->feb(),y->channel(),y->detectorStrip(_geo->feb(y->feb())),_geo->feb(y->feb()).stripShift,y->side(_geo->feb(y->feb())),y->pedSubTime(_geo->feb(y->feb())),t1);
 		  //fprintf(stderr,"Strip  t0 %f  \n",t0);
@@ -881,6 +883,16 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 		  //if (i==1008)
 		    fprintf(stderr,"Strip %d c1 %d c0 %d  t1 %f t0 %f ypos %f expected %f \n",
 			    i,x->channel(),y->channel(),t1,t0,ts.ypos(),_pex.Y()); 
+
+
+		  std::stringstream srcs;
+		  srcs<<"/Align/strip"<<i;
+		  //std:cout<<srcs.str()<<std::endl;
+		  TH1* hdts=_rh->GetTH1(srcs.str());
+		  if (hdts==NULL)
+		    hdts=_rh->BookTH1(srcs.str(),300,-130,130.);
+		  hdts->Fill(_pex.Y()-ts.ypos());
+		
 		  if (ts.ypos()<-10 || ts.ypos()>170.) continue;
 		  x->setUsed(true);
 		  y->setUsed(true);
@@ -934,7 +946,7 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 
       // Merge adjacent cluster
       bool merged=false;
-      printf("vclus size %d \n",vclus.size());
+      printf("vclus size %ld \n",vclus.size());
 
       for (auto it=vclus.begin();it!=vclus.end();it++)
 	{
@@ -960,7 +972,7 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 		++jt;
 	    }
 	}
-      printf("vclus size after %d \n",vclus.size());
+      printf("vclus size after %ld \n",vclus.size());
       //getchar();
       //if (merged)
       //	getchar();
@@ -1010,7 +1022,7 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
       hns0->Fill(stb0.count());
       hns1->Fill(stb1.count());
       hns2->Fill(_strips.size());
-      printf(" ===> %d  %d strips , Number of clusters %d \n",chamber,_strips.size(),vclus.size());
+      printf(" ===> %d  %ld strips , Number of clusters %ld \n",chamber,_strips.size(),vclus.size());
       //if (vclus.size()>0)
       hncl->Fill(vclus.size()*1.);
       uint32_t maxs=0;
@@ -1025,7 +1037,8 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 	      fprintf(stderr,"\t %f %f %d \n",x.X(),x.Y(),x.size());
 	      for (int i=0;i<x.size();i++)
 		{
-		  fprintf(stderr,"\t \t  %5.1f %5.3f %5.3f %5.3f %5.3f %5.3f %5.3f \n",x.strip(i).xpos(),x.strip(i).ypos(),x.strip(i).shift(),x.strip(i).t0(),x.strip(i).t1(),(x.strip(i).t0()+x.strip(i).t1())/2.,0);
+		  fprintf(stderr,"\t \t  %5.1f %5.3f %5.3f %5.3f %5.3f %5.3f %5.3f \n",
+		  x.strip(i).xpos(),x.strip(i).ypos(),x.strip(i).shift(),x.strip(i).t0(),x.strip(i).t1(),(x.strip(i).t0()+x.strip(i).t1())/2.,0.0);
 		}
 	    }
 	  //   }

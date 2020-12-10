@@ -392,7 +392,7 @@ bool lmana::RecoAnalyzer::buildStrips(std::vector<lydaq::TdcChannel>& vChannel,b
       if (dostop) return true;
       if (stb.count()>24) return true;
     }
-  fprintf(stderr,"Number of strips %d \n",_strips.size());
+  fprintf(stderr,"Number of strips %ld \n",_strips.size());
   //getchar();
 }
       //for (int i=0;i<24;i++)
@@ -454,7 +454,7 @@ void lmana::RecoAnalyzer::buildClusters()
 		++jt;
 	    }
 	}
-      printf("_clusters size after %d \n",_clusters.size());
+      printf("_clusters size after %ld \n",_clusters.size());
 
 }
 #ifdef SCRATCH

@@ -61,7 +61,7 @@ public:
   {
     for (int i=0;i<6;i++)
       printf("%.2x ",_fr[i]);
-    printf("%d %d %d %f \n",channel(),coarse(),fine(),tdcTime());
+    printf("%d %ld %d %f \n",channel(),coarse(),fine(),tdcTime());
     printf("\n");
   }
   void setZero(uint64_t c, uint8_t f){_0c=c;_0f=f;_0t=rawTime(c,f);}

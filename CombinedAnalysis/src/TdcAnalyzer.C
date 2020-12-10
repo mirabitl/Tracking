@@ -133,7 +133,7 @@ void lmana::TdcAnalyzer::setInfo(uint32_t dif,uint32_t run,uint32_t ev,uint32_t 
   if (_lastabcid!=0)
     {
       dlt=(_abcid-_lastabcid)*2E-7;
-      printf("Windows time %lld %lld %f \n",_lastabcid,_abcid,dlt);
+      printf("Windows time %ld %ld %f \n",_lastabcid,_abcid,dlt);
     }
   _lastabcid=_abcid;
   if (dlt>1E-30)
@@ -365,7 +365,7 @@ bool lmana::TdcAnalyzer::noiseStudy(std::vector<lydaq::TdcChannel>& vChannel,std
 	{
 	  if (c_strip[i].size()>0)
 	    {
-	      fprintf(stderr,"Chamber %d Strip %d # %d \n",chamber,i,c_strip[i].size());
+	      fprintf(stderr,"Chamber %d Strip %d # %ld \n",chamber,i,c_strip[i].size());
 	      nstrip++;
 	      if (i<48)
 		stb.set(i,1);
@@ -543,7 +543,7 @@ bool lmana::TdcAnalyzer::noiseStudy(std::vector<lydaq::TdcChannel>& vChannel,std
       hns0->Fill(stb0.count());
       hns1->Fill(stb1.count());
       hns2->Fill(_strips.size());
-      printf(" ===> %d  %d strips , Number of clusters %d \n",chamber,_strips.size(),vclus.size());
+      printf(" ===> %d  %ld strips , Number of clusters %ld \n",chamber,_strips.size(),vclus.size());
       //if (vclus.size()>0)
       hncl->Fill(vclus.size()*1.);
       uint32_t maxs=0;
@@ -1102,7 +1102,7 @@ void lmana::TdcAnalyzer::multiChambers(std::vector<lydaq::TdcChannel>& vChannel)
 	      hmulc=rh()->BookTH1(src.str()+"ClusterSize",16,0.,16.);
 
 	    }
-	  printf(" %d  %d strips , Number of clusters %d \n",chamber,_strips.size(),vclus.size());
+	  printf(" %d  %ld strips , Number of clusters %ld \n",chamber,_strips.size(),vclus.size());
 	  hncl->Fill(vclus.size()*1.);
 	  uint32_t maxs=0;
 	  for (auto x:vclus)
@@ -2161,7 +2161,7 @@ void lmana::TdcAnalyzer::LmAnalysis(uint32_t mezId,std::vector<lydaq::TdcChannel
   double ttime=0;
   _triggerChannel=TRIGCHAN;
   if (_event%1000==0)
-    printf("Event %d DIF %d GTC %d ABCID %lu Size %d %10.3f \n",_event,mezId,_gtc,_abcid,vChannel.size(),acquisitionTime());
+    printf("Event %d DIF %d GTC %d ABCID %lu Size %ld %10.3f \n",_event,mezId,_gtc,_abcid,vChannel.size(),acquisitionTime());
   for (std::vector<lydaq::TdcChannel>::iterator it=vChannel.begin();it!=vChannel.end();it++)
     {
       hstrip->Fill(it->channel()*1.+0.5);

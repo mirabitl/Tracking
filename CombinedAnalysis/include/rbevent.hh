@@ -37,21 +37,21 @@ namespace Lmana
     double _t0, _t1, _shift;
   };
   // DTA 2.5 DTY 1.5 puis 5. 5.
-#define DTA 8.5
-#define DTY 10.0
+#define DTA 2.5
+#define DTY 5.5
   class TdcCluster
   {
   public:
     TdcCluster() : _x(0), _y(0), _t0(0), _t1(0) { _strips.clear(); }
     void Print()
     {
-      printf("X %f Y %f Size %d \n", _x, _y, _strips.size());
+      printf("X %f Y %f Size %ld \n", _x, _y, _strips.size());
       for (auto x : _strips)
       {
         printf("\t %d %f %f \n", x.strip(), x.xpos(), x.ypos());
       }
     }
-    bool isAdjacent(TdcStrip &s, float step = 3)
+    bool isAdjacent(TdcStrip &s, float step = 2)
     {
 
       for (auto x : _strips)
@@ -76,7 +76,20 @@ namespace Lmana
     }
     void calcpos()
     {
-
+        _x = 0;
+        _y = 0, _t0 = 0, _t1 = 0;
+        for (int i = 0; i < _strips.size() ; i++)
+        {
+          _x += _strips[i].xpos();
+          _y += _strips[i].ypos();
+          _t0 += _strips[i].t0();
+          _t1 += _strips[i].t1();
+        }
+        _x /= (_strips.size() );
+        _y /= (_strips.size());
+        _t0 /= (_strips.size());
+        _t1 /= (_strips.size());
+        return;
       std::sort(_strips.begin(), _strips.end(), [](const TdcStrip &lhs, const TdcStrip &rhs) {
         return lhs.strip() < rhs.strip();
       });

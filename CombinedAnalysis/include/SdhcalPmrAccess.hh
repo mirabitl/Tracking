@@ -97,7 +97,7 @@ namespace sdhcal
     inline uint32_t getFrameData(uint32_t i,uint32_t iword){return sdhcal::PMRUnpacker::getFrameData(theFrames_[i],iword);}
     void dumpPMRInfo()
     {
-      printf("PMR %d  GTC %d ABCID %lld BCID  \n",
+      printf("PMR %d  GTC %d ABCID %lld BCID  %d \n",
 	     getID(),
 	     getGTC(),
 	     getAbsoluteBCID(),
