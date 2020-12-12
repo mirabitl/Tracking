@@ -30,15 +30,17 @@ def calApp(V,P,T):
   print 1-(0.2+0.8*P/990.*293./T)
   return  V*(0.2+0.8*P/990.*293./T)
 
-def getdy(run,sub="/tmp/"):
+def getdy(run,hn="strip",sub="/tmp/"):
   c=TCanvas("irpc","Alignement Studies",545,842)
   f82=TFile(sub+"histo%d_0.root" % run);
   f82.cd("/Align")
   res=[]
+  dres=[]
   for i in range(48):
     res.append(0)
+    dres.append(0)
   for ist in range(1,33):
-    hst=f82.Get("/Align/strip%d" % ist)
+    hst=f82.Get("/Align/%s%d" % (hn,ist))
     
     if (hst==None):
       continue
@@ -56,17 +58,20 @@ def getdy(run,sub="/tmp/"):
     dtres=scfit.GetParameter(2)
     print ist,hst.GetEntries(),hst.GetMean(),xm,dtmean,dtres
     res[ist]=dtmean
+    dres[ist]=dtres
     c.cd()
     hst.Draw()
     c.Modified()
     c.Update()
-    #val=raw_input()
+    val=raw_input()
   y=np.array(res)
+  dy=np.array(dres)
   #np.set_printoptions(precision=1)
   np.set_printoptions(formatter={'float': '{: 0.2f}'.format})
   print y
+  print dy
 
-def getratio(run,chamber=1,sub="/tmp/"):
+def getratio(run,chamber=1,sub="/tmp/",rebin=1):
   c=TCanvas("irpc","IRPC Studies",545,842)
   c.Divide(2,4)
   f82=TFile(sub+"histo%d_0.root" % run);
@@ -79,73 +84,113 @@ def getratio(run,chamber=1,sub="/tmp/"):
     x0=hst.GetBinContent(i+1)
     x1=hst.GetBinContent(i+1+48)
     r=0
-    if (x0>0):
+    if (x0>x1):
       r=x1/x0
-      print x0,x1,r
+      #print x0,x1,r
     hrat.SetBinContent(i+1,r)
   c.cd(2)
   hrat.Draw()
   c.Modified()
   c.Update()
-  val=raw_input()
+  #val=raw_input()
   f82.cd("/gric")
   hxy=f82.Get("/gric/XY")
   hxy.SetTitle(" 4 points Track extrapolation to the iRPC")
   hxyf=f82.Get("/gric/XYF")
+  hxyf14=f82.Get("/gric/XYF14")
+  hxyf15=f82.Get("/gric/XYF15")
   hxyf.SetTitle(" 4 points Track extrapolation to the iRPC when cluster found nearby (5cm,20cm)")
   hxyt=f82.Get("/gric/XYT")
+  result=[]
   efft=hxyt.GetEntries()/hxy.GetEntries()
+  result.append(run)
+  result.append(hxy.GetEntries())
+  result.append(hxyt.GetEntries())
+  result.append(efft*100)
   effo=hxyf.GetEntries()/hxy.GetEntries()
-  print hxy.GetEntries(),efft*100,effo*100
+  effo14=hxyf14.GetEntries()/hxy.GetEntries()
+  effo15=hxyf15.GetEntries()/hxy.GetEntries()
+  result.append(hxyf.GetEntries())
+  result.append(effo*100)
+  result.append(hxyf14.GetEntries())
+  result.append(effo14*100)
+  result.append(hxyf15.GetEntries())
+  result.append(effo15*100)
+  #print hxy.GetEntries(),efft*100,effo*100,effo14*100,effo15*100
   c.cd(3)
   hxy.Draw("COLZ")
   c.cd(4)
   hxyf.Draw("COLZ")
-  rbx=1
-  rby=4
+  rbx=rebin
+  rby=3
   hxy.Rebin2D(rbx,rby)
   hxyf.Rebin2D(rbx,rby)
+  hxyf14.Rebin2D(rbx,rby)
+  hxyf15.Rebin2D(rbx,rby)
   hxyt.Rebin2D(rbx,rby)
   hxy.SetAxisRange(0.,35.,"X")
   hxy.SetAxisRange(0.,60.,"Y")
   hxyf.SetAxisRange(0.,35.,"X")
   hxyf.SetAxisRange(0.,60.,"Y")
+  hxyf14.SetAxisRange(0.,35.,"X")
+  hxyf14.SetAxisRange(0.,60.,"Y")
+  hxyf15.SetAxisRange(0.,35.,"X")
+  hxyf15.SetAxisRange(0.,60.,"Y")
   hxyEff=hxyf.Clone("hxyEff")
   hxyEff.Divide(hxy)
   hxyEff.SetTitle("Local Efficiency map")
+  hxyEff14=hxyf14.Clone("hxyEff14")
+  hxyEff14.Divide(hxy)
+  hxyEff14.SetTitle("Local Efficiency map 14")
+  hxyEff15=hxyf15.Clone("hxyEff15")
+  hxyEff15.Divide(hxy)
+  hxyEff15.SetTitle("Local Efficiency map 15")
   heff=TH1F("heff","Local Efficiency Ntk ext>15",110,0,1.1)
-  heff1=TH1F("heff1","Local Efficiency 1-14",50,0.6,1.1)
-  heff32=TH1F("heff32","Local Efficiency 18-32",50,0.6,1.1)
+  heff1=TH1F("heff1","Local Efficiency 1-13",100,max(0.0,effo-0.4),min(1.1,effo+0.4))
+  heff32=TH1F("heff32","Local Efficiency 19-32",100,max(0.0,effo-0.4),min(1.1,effo+0.4))
   for i in range(1,hxy.GetNbinsX()):
     for j in range(1,hxy.GetNbinsY()):
       if (hxy.GetBinContent(i,j)>15):
         heff.Fill(hxyEff.GetBinContent(i,j))
-        xp=hxy.GetXaxis().GetBinCenter(i)
-        if (xp<15):
-          heff1.Fill(hxyEff.GetBinContent(i,j))
-        if (xp>17):
-          heff32.Fill(hxyEff.GetBinContent(i,j))
+        heff1.Fill(hxyEff14.GetBinContent(i,j))
+        heff32.Fill(hxyEff15.GetBinContent(i,j))
+        #xp=hxy.GetXaxis().GetBinCenter(i)
+        #if (xp<=13):
+        #  heff1.Fill(hxyEff.GetBinContent(i,j))
+        #if (xp>=19):
+        #  heff32.Fill(hxyEff.GetBinContent(i,j))
+
+  print heff1.GetMean()*100,heff32.GetMean()*100
+
+  result.append(heff1.GetMean()*100)
+  result.append(heff32.GetMean()*100)
+  y=np.array(result)
+  #np.set_printoptions(precision=1)
+  np.set_printoptions(formatter={'float': '{: 0.1f}'.format})
+  print y
+  
   c.cd(5)
-  heff.Draw()
+  hxyEff14.Draw("COLZ")
   c.Modified()
   c.Update()
-  val=raw_input()
+  #val=raw_input()
   c.cd(6)
-  hxyEff.Draw("COLZ")
+  hxyEff15.Draw("COLZ")
   c.Modified()
   c.Update()
-  val=raw_input()
+  #val=raw_input()
   c.cd(7)
   heff1.Draw()
   c.Modified()
   c.Update()
-  val=raw_input()
+  #val=raw_input()
   c.cd(8)
   heff32.Draw()
   c.Modified()
   c.Update()
+  #
+  c.SaveAs("Analyse%d.pdf" % run)
   val=raw_input()
-
 def drawtdc(run,sub="Histos/InTime/"):
     c=TCanvas()
     hmean=TH1F("hmean","Summary of mean distance ",1000,-20.,20.)

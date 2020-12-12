@@ -56,14 +56,16 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
   TH2* hxy=_rh->GetTH2("/gric/XY");
   TH2* hxyt=_rh->GetTH2("/gric/XYT");
   TH2* hxyf=_rh->GetTH2("/gric/XYF");
+  TH2* hxyf14=_rh->GetTH2("/gric/XYF14");
+  TH2* hxyf15=_rh->GetTH2("/gric/XYF15");
   TH1* hcount=_rh->GetTH1("/gric/Count");
   TH1* hdt=_rh->GetTH1("/gric/dt");
   TH1* hch=_rh->GetTH1("/gric/tdcchannel");
   TH1* hinti=_rh->GetTH1("/gric/InTime");
   if (hzx==NULL)
     {
-      hcount=_rh->BookTH1("/gric/Count",10,0.1,10.1);
-      hdt=_rh->BookTH1("/gric/dt",100000,-100000.,220000.);
+      hcount=_rh->BookTH1("/gric/Count",30,0.1,30.1);
+      hdt=_rh->BookTH1("/gric/dt",500,-250.,250.);
       hch=_rh->BookTH1("/gric/tdcchannel",70,0.,70.);
       hinti=_rh->BookTH1("/gric/InTime",70,-0.1,69.9);
       hzx=_rh->BookTH2("/gric/ZX",400,0.,200.,100.,0.,100.);
@@ -71,6 +73,8 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
       hxy=_rh->BookTH2("/gric/XY",100,0.,50.,100.,0.,100.);
       hxyt=_rh->BookTH2("/gric/XYT",100,0.,50.,100.,0.,100.);
       hxyf=_rh->BookTH2("/gric/XYF",100,0.,50.,100.,0.,100.);
+      hxyf14=_rh->BookTH2("/gric/XYF14",100,0.,50.,100.,0.,100.);
+      hxyf15=_rh->BookTH2("/gric/XYF15",100,0.,50.,100.,0.,100.);
 	    }
   hzx->Reset();
   hzy->Reset();
@@ -162,6 +166,15 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
     return;
   if (top_tk.orig().X()>47) return;
   if (top_tk.plans()!=30) return;
+  hcount->Fill(20.);
+  uint32_t cnt[20];
+  memset(cnt,0,20*sizeof(uint32_t));
+  for (auto x=_vPoints.begin();x!=_vPoints.end();x++)
+    {
+		hcount->Fill(22+(*x).plan());
+		cnt[x->plan()]++;
+	}
+	if (cnt[3]>2 || cnt[4]>2) return;
   printf(" TK ax %f ay %f bx %f by %f \n",
 	   top_tk.dir().X(),
 	   top_tk.dir().Y(),
@@ -184,7 +197,7 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
       double ddt=(coarsedif-(x.tdcTime()/2.5))*2.5/200.;
       //ddt=ddt*2.5/200.;
 	  
-      if (ddt<0 && ddt>-10.0 )
+      if (ddt<-3 && ddt>-8)
 	{
 	  vChannel.push_back(x);
 	  printf("=======> %d %d %d %d \n",ibc,int(ddt),x.feb(),x.channel());
@@ -200,6 +213,7 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
 
     hxyt->Fill(_pex.X(),_pex.Y());
 
+      
   }
   _run=e->run();
 
@@ -207,6 +221,10 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
   if (cfound)
     {
       hxyf->Fill(_pex.X(),_pex.Y());
+      if (_selfeb==14)
+	hxyf14->Fill(_pex.X(),_pex.Y());
+      if (_selfeb==15)
+	hxyf15->Fill(_pex.X(),_pex.Y());
     }
   //getchar();
   if (_geoRoot["general"]["display"].asUInt()==0) return;
@@ -1106,19 +1124,16 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 	      hposdma->Fill(x.X()-_pex.X(),x.Y()+dy[int(x.X())]-_pex.Y());
 	      clusterFound=abs(x.X()-_pex.X())<5&& abs(x.Y()+dy[int(x.X())]-_pex.Y())<9.5 ;
 	      hdtr0->Fill(x.X()-_pex.X());
+	      _selfeb=x.strip(0).dif();
 	      for (int i=0;i<x.size();i++)
 		{
 		  hposs->Fill(x.strip(i).xpos(),x.strip(i).ypos());
 		  std::stringstream srcs;
-		  srcs<<src.str()<<"align/strip"<<int(x.strip(i).xpos());
+		  srcs<<"/Align/Sstrip"<<int(x.strip(i).xpos());
 		  //std:cout<<srcs.str()<<std::endl;
 		  TH1* hdts=_rh->GetTH1(srcs.str());
 		  if (hdts==NULL)
 		    hdts=_rh->BookTH1(srcs.str(),300,-130,130.);
-		  
-		  float L=160.;
-		  float v=160./8.7;
-		  float xl=(L-x.strip(i).ypos()*v)/2.+L/2.;
 
 		  hdts->Fill(_pex.Y()-x.strip(i).ypos()-dy[int(x.X())]);
 		}
