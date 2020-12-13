@@ -1023,7 +1023,7 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 	  hposc1=_rh->BookTH2(src.str()+"XY1",48,0.,48.,420,-10.,200.);
 	  hposcm=_rh->BookTH2(src.str()+"XYMore",48,0.,48.,420,-10.,200.);
 	  hposcma=_rh->BookTH2(src.str()+"XYMax",48,0.,48.,420,-10.,200.);
-	  hposdma=_rh->BookTH2(src.str()+"DIST",100,-10.,10.,600,-120.,120.);
+	  hposdma=_rh->BookTH2(src.str()+"DIST",100,-10.,10.,600,-20.,220.);
 	  hposx=_rh->BookTH2(src.str()+"XYX",48,0.,48.,420,-10.,200.);
 	  hncl=_rh->BookTH1(src.str()+"Clusters",32,0.,32.);
 	  hmulc=_rh->BookTH1(src.str()+"ClusterSize",32,0.,32.);
@@ -1133,7 +1133,7 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 		  //std:cout<<srcs.str()<<std::endl;
 		  TH1* hdts=_rh->GetTH1(srcs.str());
 		  if (hdts==NULL)
-		    hdts=_rh->BookTH1(srcs.str(),300,-130,130.);
+		    hdts=_rh->BookTH1(srcs.str(),3000,-130.,130.);
 
 		  hdts->Fill(_pex.Y()-x.strip(i).ypos()-dy[int(x.X())]);
 		}

@@ -122,7 +122,7 @@ def getratio(run,chamber=1,sub="/tmp/",rebin=1):
   c.cd(4)
   hxyf.Draw("COLZ")
   rbx=rebin
-  rby=3
+  rby=4
   hxy.Rebin2D(rbx,rby)
   hxyf.Rebin2D(rbx,rby)
   hxyf14.Rebin2D(rbx,rby)
@@ -146,15 +146,20 @@ def getratio(run,chamber=1,sub="/tmp/",rebin=1):
   hxyEff15.Divide(hxy)
   hxyEff15.SetTitle("Local Efficiency map 15")
   heff=TH1F("heff","Local Efficiency Ntk ext>15",110,0,1.1)
-  heff1=TH1F("heff1","Local Efficiency 1-13",100,max(0.0,effo-0.4),min(1.1,effo+0.4))
-  heff32=TH1F("heff32","Local Efficiency 19-32",100,max(0.0,effo-0.4),min(1.1,effo+0.4))
+  dmin=max(0,effo*0.7)
+  dmax=min(1.1,effo*1.3)
+  heff1=TH1F("heff1","Local Efficiency 1-13",100,dmin,dmax)
+  heff32=TH1F("heff32","Local Efficiency 19-32",100,dmin,dmax)
   for i in range(1,hxy.GetNbinsX()):
     for j in range(1,hxy.GetNbinsY()):
       if (hxy.GetBinContent(i,j)>15):
         heff.Fill(hxyEff.GetBinContent(i,j))
-        heff1.Fill(hxyEff14.GetBinContent(i,j))
-        heff32.Fill(hxyEff15.GetBinContent(i,j))
-        #xp=hxy.GetXaxis().GetBinCenter(i)
+        xp=hxy.GetXaxis().GetBinCenter(i)
+        if (xp<=13):
+            heff1.Fill(hxyEff14.GetBinContent(i,j))
+        if (xp>=19):
+            heff32.Fill(hxyEff15.GetBinContent(i,j))
+
         #if (xp<=13):
         #  heff1.Fill(hxyEff.GetBinContent(i,j))
         #if (xp>=19):
@@ -162,8 +167,13 @@ def getratio(run,chamber=1,sub="/tmp/",rebin=1):
 
   print heff1.GetMean()*100,heff32.GetMean()*100
 
+  deff1=(heff1.GetRMS()/math.sqrt(heff1.GetEntries()))*100
+  deff32=(heff32.GetRMS()/math.sqrt(heff32.GetEntries()))*100
+         
   result.append(heff1.GetMean()*100)
+  result.append(deff1)
   result.append(heff32.GetMean()*100)
+  result.append(deff32)
   y=np.array(result)
   #np.set_printoptions(precision=1)
   np.set_printoptions(formatter={'float': '{: 0.1f}'.format})
