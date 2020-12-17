@@ -52,10 +52,12 @@ class binaryreader : public rbProcessor
     DCHistogramHandler* _rh;
     Json::Value _geoRoot;
     jsonGeo* _geo;
+    std::vector<Lmana::HR2Pad> _vPads;
+    std::vector<Lmana::HR2Cluster> _vHRCl;
     std::vector<recoPoint> _vPoints;
 
 
-    recoTrack top_tk;
+    recoTrack top_tk,t12_tk;
     std::vector<Lmana::TdcStrip> _strips;
     std::vector<Lmana::TdcCluster> _clusters;
 

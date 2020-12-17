@@ -71,7 +71,7 @@ def getdy(run,hn="strip",sub="/tmp/"):
   print y
   print dy
 
-def getratio(run,chamber=1,sub="/tmp/",rebin=1):
+def getratio(run,chamber=1,sub="/tmp/",rebin=1,ncut=30):
   c=TCanvas("irpc","IRPC Studies",545,842)
   c.Divide(2,4)
   f82=TFile(sub+"histo%d_0.root" % run);
@@ -122,7 +122,7 @@ def getratio(run,chamber=1,sub="/tmp/",rebin=1):
   c.cd(4)
   hxyf.Draw("COLZ")
   rbx=rebin
-  rby=4
+  rby=2
   hxy.Rebin2D(rbx,rby)
   hxyf.Rebin2D(rbx,rby)
   hxyf14.Rebin2D(rbx,rby)
@@ -147,36 +147,42 @@ def getratio(run,chamber=1,sub="/tmp/",rebin=1):
   hxyEff15.SetTitle("Local Efficiency map 15")
   heff=TH1F("heff","Local Efficiency Ntk ext>15",110,0,1.1)
   dmin=max(0,effo*0.7)
-  dmax=min(1.1,effo*1.3)
-  heff1=TH1F("heff1","Local Efficiency 1-13",100,dmin,dmax)
-  heff32=TH1F("heff32","Local Efficiency 19-32",100,dmin,dmax)
+  dmax=min(1.1,effo*1.6)
+  nb=int((dmax-dmin)/0.005)
+  heff1=TH1F("heff1","Local Efficiency 1-13",nb,dmin,dmax)
+  heff32=TH1F("heff32","Local Efficiency 19-32",nb,dmin,dmax)
+
   for i in range(1,hxy.GetNbinsX()):
     for j in range(1,hxy.GetNbinsY()):
-      if (hxy.GetBinContent(i,j)>15):
+      if (hxy.GetBinContent(i,j)>ncut):
         heff.Fill(hxyEff.GetBinContent(i,j))
         xp=hxy.GetXaxis().GetBinCenter(i)
-        if (xp<=13):
-            heff1.Fill(hxyEff14.GetBinContent(i,j))
-        if (xp>=19):
-            heff32.Fill(hxyEff15.GetBinContent(i,j))
-
+# Jusqu'au run 1721
         #if (xp<=13):
-        #  heff1.Fill(hxyEff.GetBinContent(i,j))
+        #    heff1.Fill(hxyEff14.GetBinContent(i,j))
         #if (xp>=19):
-        #  heff32.Fill(hxyEff.GetBinContent(i,j))
+        #    heff32.Fill(hxyEff15.GetBinContent(i,j))
+# A partir du 1722 (14 et 15 inverted)
+        if (xp>=5 and xp<15):
+            heff1.Fill(hxyEff15.GetBinContent(i,j))
+            print hxy.GetBinContent(i,j), hxyf15.GetBinContent(i,j),hxyEff15.GetBinContent(i,j)
+        if (xp>17 and xp<27):
+            heff32.Fill(hxyEff14.GetBinContent(i,j))
 
   print heff1.GetMean()*100,heff32.GetMean()*100
 
   deff1=(heff1.GetRMS()/math.sqrt(heff1.GetEntries()))*100
   deff32=(heff32.GetRMS()/math.sqrt(heff32.GetEntries()))*100
-         
+  result.append(heff1.GetEntries())
   result.append(heff1.GetMean()*100)
   result.append(deff1)
+  result.append(heff32.GetEntries())
   result.append(heff32.GetMean()*100)
   result.append(deff32)
   y=np.array(result)
   #np.set_printoptions(precision=1)
   np.set_printoptions(formatter={'float': '{: 0.1f}'.format})
+  y.tofile("result%d.csv" % run,sep='|',format='%7.1f')
   print y
   
   c.cd(5)

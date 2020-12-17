@@ -26,10 +26,32 @@ namespace Lmana
     inline double shift() const { return _shift; }
     //inline double ypos() const {return (_t0-_t1-_shift)/1.;}
     // Avant inline double ypos() const {return _shift+80.0+(160.-(_t1-_t0)*18.39)/2.0;}
-    inline double ypos() const { return _shift + 160. - (_t1 - _t0) * 18.39 / 2.0; }
+    inline double ypos() const {
+      float Ls=146.3;
+      float lc[33]={0.,
+		    3.0,3.0,3.0,3.0,
+		    3.0,3.99,4.98,5.97,
+		    6.96,7.95,8.94,9.93,
+		    10.92,11.91,12.90,13.89,
+		    13.89,12.90,11.91,10.92,
+		    9.93,8.94,7.95,6.96,
+		    5.97,4.98,3.99,3.0,
+		    3.0,3.0,3.0,3.0};
+      float lr0=35.8+6.9+146.2+8.6+2.5+22;
+      float dlr[33]={0.,
+		     9.0,8.4,7.8,7.2,6.6,6.0,5.4,4.8,
+		     4.2,3.6,3.0,2.4,1.8,1.2,0.6,0.,
+		     0.,0.6,1.2,1.8,2.4,3.0,3.6,4.2,
+		     4.8,5.4,6.0,6.6,7.2,7.8,8.4,9.0,
+		     };
+      float Lr=lr0-dlr[_str];
+      float Lc=lc[_str];
+      return _shift+(Ls+Lr-Lc-VPCB*(_t1-_t0))/2.0;
+      //return _shift + 160. - (_t1 - _t0) * 18.39 / 2.0;
+    }
     inline double xpos() const
     {
-      return _str * 1.0;
+      return _str * 0.96;
     }
 
   private:
@@ -51,7 +73,7 @@ namespace Lmana
         printf("\t %d %f %f \n", x.strip(), x.xpos(), x.ypos());
       }
     }
-    bool isAdjacent(TdcStrip &s, float step = 2)
+    bool isAdjacent(TdcStrip &s, float step = 3)
     {
 
       for (auto x : _strips)
@@ -138,6 +160,8 @@ namespace Lmana
         _t0 /= (_strips.size() - 4);
         _t1 /= (_strips.size() - 4);
       }
+
+      
     }
     inline double X() { return _x; }
     inline double Y() { return _y; }
@@ -153,6 +177,106 @@ namespace Lmana
     double _x, _y, _t0, _t1;
     std::vector<Lmana::TdcStrip> _strips;
   };
+
+class HR2Pad : public ROOT::Math::XYZPoint
+{
+public:
+  HR2Pad(double x,double y,double z,uint32_t plan,uint32_t dif,uint32_t i,uint32_t j)
+  {
+    this->SetXYZ(x,y,z);
+    valid_=true;_used=false;
+    _plan=plan;
+    _dif=dif;
+    _I=i;
+    _J=j;
+    
+  }
+  HR2Pad(uint32_t plan,uint32_t dif,uint32_t i,uint32_t j){_plan=plan; _dif=dif;
+    _I=i;
+    _J=j;}
+  ~HR2Pad(){;}
+  inline double const dX(){return 0.3;}
+  inline double const dY(){return 0.3;}
+  inline uint32_t  plan(){return _plan;}
+  inline uint32_t  dif(){return _dif;}
+  inline uint32_t  I(){return _I;}
+  inline uint32_t  J(){return _J;}
+
+  inline bool isUsed() const {return _used;}
+  inline void setUse(bool t ){_used=t;}
+  bool operator < (const Lmana::HR2Pad& str) const
+  {
+    return (Z() < str.Z());
+  }
+  void setValidity(bool t){valid_=t;}
+  bool isValid() const {return valid_;}
+  void setPlan(uint32_t p){_plan=p;}
+protected:
+  bool valid_,_used;
+  uint32_t _plan,_dif,_I,_J;
+};
+
+  
+    class HR2Cluster
+  {
+  public:
+    HR2Cluster() : _x(0), _y(0) { _pads.clear(); }
+    void Print()
+    {
+      printf("X %f Y %f Size %ld \n", _x, _y, _pads.size());
+      for (auto x : _pads)
+      {
+        printf("\t %d %d %d %f %f \n", x.dif(),x.I(),x.J(), x.X(), x.Y());
+      }
+    }
+    bool isAdjacent(Lmana::HR2Pad &s, float step = 3)
+    {
+
+      for (auto x : _pads)
+      {
+        //if (abs(x.xpos()-s.xpos())<step && abs(x.ypos()-s.ypos())<2)
+        if (x.dif() != s.dif())
+          continue;
+        if (abs(x.X() - s.X()) < step && abs(x.Y() - s.Y()) < step) 
+        {
+          return true;
+        }
+      }
+      return false;
+    }
+    void addPad(HR2Pad &s)
+    {
+      _pads.push_back(s);
+      this->calcpos();
+    }
+    void calcpos()
+    {
+        _x = 0;
+        _y = 0;
+
+        for (int i = 0; i < _pads.size() ; i++)
+        {
+          _x += _pads[i].X();
+          _y += _pads[i].Y();
+        }
+        _x /= (_pads.size() );
+        _y /= (_pads.size());
+        return;
+      
+    }
+    inline double X() { return _x; }
+    inline double Y() { return _y; }
+    inline double Z() { return  (_pads.size() > 0) ? _pads[0].Z() : 0;  }
+    uint32_t size() { return _pads.size(); }
+    Lmana::HR2Pad &pad(int n) { return _pads[n]; }
+    inline uint32_t chamber()  { return (_pads.size() > 0) ? _pads[0].plan() : 0; }
+    inline uint32_t dif()  { return (_pads.size() > 0) ? _pads[0].dif() : 0; }
+
+  private:
+    double _x, _y;
+    std::vector<Lmana::HR2Pad> _pads;
+  };
+
 }; // namespace Lmana
 
 class rbEvent

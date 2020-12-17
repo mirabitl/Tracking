@@ -416,11 +416,13 @@ void tdcrb::read()
 		  // printf("%d %ld %d %x %d \n",ibuf[1],lbuf[1],ibuf[4],ibuf[5],ibuf[6]);
 		  
 		     int cnt=0,cntmax=20;
+#ifdef DUMPBUFBEG
 		     for (int i=0;i<30;i++)
 		     {
 		     printf("%.2x ",bb[i]);
 		     }
 		     printf("\n");
+#endif	    
 		     /**
 		     cnt++;
 		     if (cnt==cntmax)
@@ -460,15 +462,17 @@ void tdcrb::read()
 		{
 		  uint8_t* bb=&_buf[_idx];
 		  uint32_t* ibuf=(uint32_t*) b.payload();
-		  
+#ifdef DUMPBUFBEG		  
 		  for (int i=0;i<7;i++)
 		    {
 		      printf("%d ",ibuf[i]);
 		    }
+#endif	    
 		  uint32_t nch=ibuf[6];
-		  printf("\n channels -> %d \n",nch);
+
 		  _mezzanine=ibuf[4];
 		  _difId=(ibuf[5]>>24)&0xFF;
+		  //printf(" FEB %x channels -> %d \n",_difId,nch);
 		  _gtc=ibuf[1];
 		  
 		  if (!_initialised)
@@ -476,7 +480,7 @@ void tdcrb::read()
 		      _theEvent.init(_run,_event,_bxId,_gtc);
 		      _initialised=true;
 		    }
-		  INFO_PRINTF("\t \t \t %d %d GTC %d NCH %d \n",_mezzanine,_difId,_gtc,nch);
+		  INFO_PRINTF("\t %d %d GTC %d NCH %d \n",_mezzanine,_difId,_gtc,nch);
 
 		  
 		  if (ibuf[6]>=0)
@@ -555,7 +559,7 @@ void tdcrb::read()
 		{
 		  sdhcal::PMRPtr* d = (*it);
 		  uint32_t chid= _geo->difInfo(d->getID()).chamber;
-		  fprintf(stderr,"CHAMBER %d %d \n",d->getID(),chid);
+		  //fprintf(stderr,"CHAMBER %d %d \n",d->getID(),chid);
 		  // LMTest      uint32_t bc = rint(f->getBunchCrossingTime()/DCBufferReader::getDAQ_BC_Period());
 		  //uint32_t chid = 1;
 		  uint32_t window=2;
@@ -684,12 +688,15 @@ void tdcrb::read()
 
 	      if (x.second.count()>2)
 		{
-		  fprintf(stderr," bcid %d cnt %ld \n",x.first,x.second.count());
+		  fprintf(stderr,"Time Coiincidence bcid %d cnt %ld \n",x.first,x.second.count());
+#ifdef DUMPCOINC		  
 		  auto tf=_theEvent.tFrame()[x.first];
+		  
 		 for (auto it=tf.begin();it!=tf.end();it++)
 		   {
 		     std::cout<<it->first->getID()<<" "<<it->first->getFrameTimeToTrigger(it->second)<<std::endl;
 		       }
+#endif
 		coinc=true;
 		}
 	    }
