@@ -13,13 +13,15 @@
 #include <Math/Vector3Dfwd.h>
 #include <Math/DisplacementVector3D.h>
 
-
+#include "TTree.h"
+#include "TFile.h"
 #include <vector>
 #include <map>
 #include <string>
 #include <boost/function.hpp>
 #include <boost/thread.hpp>
 #include <boost/bind.hpp>
+#include "evTree.hh"
 typedef struct {
   double xm[3];
   double lambda[3];
@@ -45,6 +47,8 @@ class binaryreader : public rbProcessor
     void processCoincidence(rbEvent* e,uint32_t ibc);
     int TPrincipalComponents(double result[21],float zmin,float zmax);
     bool stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::string subdir);
+    void createTrees(std::string s);
+    void closeTrees();
   private:
     uint32_t _run,_event,_totalSize;
     int32_t _fdOut;
@@ -63,6 +67,10 @@ class binaryreader : public rbProcessor
 
     ROOT::Math::XYZPoint _pex;
     uint32_t _selfeb;
+struct FullEventTree _fevt;
+TTree* tEvents_;
+    TFile* treeFile_;
+
   };
 
 #endif

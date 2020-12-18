@@ -157,16 +157,17 @@ def getratio(run,chamber=1,sub="/tmp/",rebin=1,ncut=30):
       if (hxy.GetBinContent(i,j)>ncut):
         heff.Fill(hxyEff.GetBinContent(i,j))
         xp=hxy.GetXaxis().GetBinCenter(i)
+        yp=hxy.GetYaxis().GetBinCenter(j)
 # Jusqu'au run 1721
         #if (xp<=13):
         #    heff1.Fill(hxyEff14.GetBinContent(i,j))
         #if (xp>=19):
         #    heff32.Fill(hxyEff15.GetBinContent(i,j))
 # A partir du 1722 (14 et 15 inverted)
-        if (xp>=5 and xp<15):
+        if (xp>=8.5 and xp<15 and yp<46 and yp>3):
             heff1.Fill(hxyEff15.GetBinContent(i,j))
             print hxy.GetBinContent(i,j), hxyf15.GetBinContent(i,j),hxyEff15.GetBinContent(i,j)
-        if (xp>17 and xp<27):
+        if (xp>17 and xp<27 and yp<46 and yp>3):
             heff32.Fill(hxyEff14.GetBinContent(i,j))
 
   print heff1.GetMean()*100,heff32.GetMean()*100

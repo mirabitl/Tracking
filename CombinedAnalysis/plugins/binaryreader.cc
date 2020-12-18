@@ -21,7 +21,7 @@
 
 using namespace lydaq;
 using namespace Lmana;
-binaryreader::binaryreader() : _run(0),_started(false),_fdOut(-1),_totalSize(0),_event(0) {}
+binaryreader::binaryreader() : _run(0),_started(false),_fdOut(-1),_totalSize(0),_event(0),tEvents_(NULL) {}
 void binaryreader::init(uint32_t run)
 {
   _run=run; 
@@ -41,6 +41,8 @@ void binaryreader::loadParameters(Json::Value params)
 }
 void binaryreader::end(uint32_t run)
 {
+  this->closeTrees();
+
   _started=false;
 
 }
@@ -51,6 +53,19 @@ void binaryreader::processRunHeader(std::vector<uint32_t> header)
 static TCanvas* TCHits=NULL;
 void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
 {
+  memset(&_fevt,0,sizeof(struct FullEventTree));
+  _fevt.bc=ibc;
+  _fevt.run=e->run();
+  _fevt.gtc=e->gtc();
+  _fevt.event=e->event();
+
+  if (tEvents_==NULL)
+    {
+      std::stringstream ss;
+      ss<<"/tmp/tree"<<e->run()<<"_"<<e->gtc()<<".root";
+      this->createTrees(ss.str());			    
+    }
+  
   if (ibc<30) return;
   TH2* hzx=_rh->GetTH2("/gric/ZX");
   TH2* hzy=_rh->GetTH2("/gric/ZY");
@@ -115,6 +130,10 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
 	      _geo->convert(d->getID(),d->getFrameAsicHeader(ifra),ipad,&pt);
 	      pt.SetZ(_geo->chamberInfo(chid).z0);
 	      _vPads.push_back(pt);
+	      _fevt.pad_dif[ _fevt.npad]=d->getID();
+	      _fevt.pad_asic[ _fevt.npad]=d->getFrameAsicHeader(ifra);
+	      _fevt.pad_channel[ _fevt.npad]=ipad;
+	      _fevt.npad++;
 	      if (_geoRoot["general"]["display"].asUInt()!=0)
 	      //printf("Chamber %d %f \n",chid,_geo->chamberInfo(chid).z0);
 		printf("Point %d %d %d %f %f %f \n",d->getID(),d->getFrameAsicHeader(ifra),ipad,pt.X(),pt.Y(),pt.Z());
@@ -182,7 +201,10 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
 	  _vPoints.push_back(pt);
 	  hzx->Fill(x.Z(),x.X());
 	  hzy->Fill(x.Z(),x.Y());
-
+	  _fevt.tel_x[_fevt.ntel]=x.X();
+	  _fevt.tel_y[_fevt.ntel]=x.Y();
+	  _fevt.tel_z[_fevt.ntel]=x.Z();
+	  _fevt.ntel++;
 	}
   ShowerParams isha;
   double ax=0,bx=0,ay=0,by=0;
@@ -270,9 +292,20 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
   // 	   top_tk.dir().Y(),
   // 	   top_tk.orig().X(),
   // 	 top_tk.orig().Y());
-  
+    _fevt.tk_x[0]=top_tk.orig().X();
+    _fevt.tk_x[1]=top_tk.orig().Y();
+    _fevt.tk_x[2]=top_tk.orig().Z();
+    _fevt.tk_v[0]=top_tk.dir().X();
+    _fevt.tk_v[1]=top_tk.dir().Y();
+    _fevt.tk_v[2]=top_tk.dir().Z();
+    _fevt.tk_pchi2=top_tk.pchi2();
+    _fevt.tk_plans=top_tk.plans();
   ROOT::Math::XYZPoint p=top_tk.extrapolate(82);
   _pex.SetXYZ(33-p.Y(),50-p.X(),p.Z());
+
+  _fevt.pex_x[0]=_pex.X();
+  _fevt.pex_x[1]=_pex.Y();
+  _fevt.pex_x[2]=_pex.Z();
   hxy->Fill(_pex.X(),_pex.Y());
   hcount->Fill(9.);
   // printf("NCH %ld \n",e->tdcChannels().size());
@@ -292,7 +325,13 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
 	  vChannel.push_back(x);
 	  //printf("=======> %d %d %d %d \n",ibc,int(ddt),x.feb(),x.channel());
 	  hch->Fill((x.feb()-14.)+x.channel());
+	  _fevt.f_feb[ninti]=x.feb();
+	  _fevt.f_channel[ninti]=x.channel();
+	  _fevt.f_coarse[ninti]=x.coarse();
+	  _fevt.f_fine[ninti]=x.fine();
+
 	  ninti++;
+	  _fevt.ninti=ninti;
 	}
       hdt->Fill(ddt);
 
@@ -310,12 +349,20 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
   bool cfound=this->stripStudy(vChannel,"FEB");
   if (cfound)
     {
+      _fevt.found_feb=_selfeb;
       hxyf->Fill(_pex.X(),_pex.Y());
       if (_selfeb==14)
 	hxyf14->Fill(_pex.X(),_pex.Y());
       if (_selfeb==15)
 	hxyf15->Fill(_pex.X(),_pex.Y());
     }
+  if (tEvents_!=NULL)
+    {
+      treeFile_->cd();
+                
+      tEvents_->Fill();
+    }
+
   //getchar();
   if (_geoRoot["general"]["display"].asUInt()==0) return;
   if (TCHits==NULL)
@@ -1268,6 +1315,55 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 
 
   return clusterFound;
+}
+
+void binaryreader::createTrees(std::string s)
+{
+
+  treeFile_ = new TFile(s.c_str(), "recreate");
+  treeFile_->cd();
+
+  tEvents_ = new TTree("events", "Events");
+  tEvents_->SetAutoSave(50000000);
+  
+  tEvents_->Branch("bcid", &_fevt.bc, "bcid/l");
+  tEvents_->Branch("run", &_fevt.run, "run/i");
+  tEvents_->Branch("event", &_fevt.event, "event/i");
+  tEvents_->Branch("gtc", &_fevt.event, "gtc/i");
+  tEvents_->Branch("npad", &_fevt.npad, "npad/s");
+  tEvents_->Branch("pad_dif", &_fevt.pad_dif, "pad_dif[npad]/s");
+  tEvents_->Branch("pad_asic", &_fevt.pad_asic, "pad_asic[npad]/b");
+  tEvents_->Branch("pad_channel", &_fevt.pad_channel, "pad_channel[npad]/b");
+  tEvents_->Branch("ntel", &_fevt.ntel, "ntel/s");
+  tEvents_->Branch("tel_x", &_fevt.tel_x, "tel_x[ntel]/F");
+  tEvents_->Branch("tel_y", &_fevt.tel_y, "tel_y[ntel]/F");
+  tEvents_->Branch("tel_z", &_fevt.tel_z, "tel_z[ntel]/F");
+  tEvents_->Branch("tk_x", &_fevt.tk_x, "tk_x[3]/F");
+  tEvents_->Branch("tk_v", &_fevt.tk_x, "tk_v[3]/F");
+  tEvents_->Branch("tk_pchi2", &_fevt.tk_pchi2, "tk_pchi2/F");
+  tEvents_->Branch("tk_plans", &_fevt.tk_plans, "tk_plans/l");
+  tEvents_->Branch("pex_x", &_fevt.pex_x, "pex_x[3]/F");
+
+  tEvents_->Branch("found_feb", &_fevt.found_feb, "found_feb/b");
+  tEvents_->Branch("ninti", &_fevt.ninti, "ninti/s");
+  tEvents_->Branch("f_feb", &_fevt.f_feb, "f_feb[ninti]/b");
+  tEvents_->Branch("f_channel", &_fevt.f_channel, "f_channel[ninti]/b");
+  tEvents_->Branch("f_fine", &_fevt.f_fine, "f_fine[ninti]/b");
+  tEvents_->Branch("f_coarse", &_fevt.f_coarse, "f_coarse[ninti]/l");
+
+
+
+  std::cout << " create Trees" << std::endl;
+}
+void binaryreader::closeTrees()
+{
+  if (tEvents_!=0)
+    {
+  treeFile_->cd();
+  tEvents_->Write();
+  treeFile_->ls();
+  treeFile_->Close();
+    }
 }
 
 
