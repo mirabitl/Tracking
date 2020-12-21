@@ -38,7 +38,7 @@ class analyse:
             self.P=self.calP(p0,170)
         if (self.P!=0 and self.T!=0):
             self.HVeff=self.calV(self.HVapp,self.P,self.T)
-        self.comment="(%d/%d) VTH %d" % (self.HVapp,self.HVeff,self.Threshold)
+        self.comment="R%d (%d/%d) VTH %d(%.1f fC)" % (self.run,self.HVapp,self.HVeff,self.Threshold,(thr-480)*2.4)
     def calP(self,p0,alt):
         return p0*(1-0.0065*alt/288.15)**5.255
 
