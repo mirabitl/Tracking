@@ -718,8 +718,12 @@ void tdcrb::end()
 
   //  _analyzer->end();
   std::stringstream sr;
-  //sr<<_geo->general()["directory"].asString()<<"/histo"<<_run<<"_0.root";
-  sr<<"/tmp/histo"<<_run<<"_0.root";
+  if (_geo->general()["noise"].asUInt()==0)
+    sr<<_geo->general()["directory"].asString()<<"/histo"<<_run<<"_0.root";
+  else
+    sr<<_geo->general()["directory"].asString()<<"/Noisehisto"<<_run<<"_0.root";
+  
+  //sr<<"/tmp/histo"<<_run<<"_0.root";
   _rh->writeHistograms(sr.str());
 
 

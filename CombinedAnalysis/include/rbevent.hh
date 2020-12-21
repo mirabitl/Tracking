@@ -23,6 +23,7 @@ namespace Lmana
     inline uint16_t dif() const { return _dif; }
     inline double t0() const { return _t0; }
     inline double t1() const { return _t1; }
+    inline double TM() const { return (_t1+_t0)/2.; }
     inline double shift() const { return _shift; }
     //inline double ypos() const {return (_t0-_t1-_shift)/1.;}
     // Avant inline double ypos() const {return _shift+80.0+(160.-(_t1-_t0)*18.39)/2.0;}
@@ -53,13 +54,14 @@ namespace Lmana
     {
       return _str * 0.96;
     }
-
+    inline double X(){return xpos();}
+    inline double Y(){return ypos();}
   private:
     uint16_t _dif, _str, _ch;
     double _t0, _t1, _shift;
   };
   // DTA 2.5 DTY 1.5 puis 5. 5.
-#define DTA 2.5
+#define DTA 5.0
 #define DTY 5.5
   class TdcCluster
   {

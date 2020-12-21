@@ -31,9 +31,11 @@ def calApp(V,P,T):
   return  V*(0.2+0.8*P/990.*293./T)
 
 def getdy(run,hn="strip",sub="/tmp/"):
-  c=TCanvas("irpc","Alignement Studies",545,842)
+  c=TCanvas("irpc","Alignement Studies",545,342)
   f82=TFile(sub+"histo%d_0.root" % run);
   f82.cd("/Align")
+  gStyle.SetOptFit();
+  gStyle.SetOptStat(0);
   res=[]
   dres=[]
   for i in range(48):
@@ -46,6 +48,9 @@ def getdy(run,hn="strip",sub="/tmp/"):
       continue
     if (hst.GetEntries()<100):
       hst.Rebin(2)
+    hst.SetTitle("Y_{ext} - Y_{strip} Strip %d" % ist)
+    hst.GetXaxis().SetTitle("#Delta Y (cm)")
+    hst.GetYaxis().SetTitle("Number of event")
     xm=-100000.
     maxh=0
     for ib in range(1,hst.GetNbinsX()):
@@ -53,7 +58,7 @@ def getdy(run,hn="strip",sub="/tmp/"):
         maxh=hst.GetBinContent(ib)
         xm=hst.GetXaxis().GetBinCenter(ib)
     scfit=TF1("scfit","gaus",xm-10,xm-10)
-    hst.Fit("scfit","","",xm-10,xm+10);
+    hst.Fit("scfit","","",xm-20,xm+20);
     dtmean=scfit.GetParameter(1)
     dtres=scfit.GetParameter(2)
     print ist,hst.GetEntries(),hst.GetMean(),xm,dtmean,dtres
@@ -63,7 +68,8 @@ def getdy(run,hn="strip",sub="/tmp/"):
     hst.Draw()
     c.Modified()
     c.Update()
-    val=raw_input()
+    c.SaveAs("IRPC_dy_strip%d.png" % ist)
+  val=raw_input()
   y=np.array(res)
   dy=np.array(dres)
   #np.set_printoptions(precision=1)
@@ -141,16 +147,16 @@ def getratio(run,chamber=1,sub="/tmp/",rebin=1,ncut=30):
   hxyEff.SetTitle("Local Efficiency map")
   hxyEff14=hxyf14.Clone("hxyEff14")
   hxyEff14.Divide(hxy)
-  hxyEff14.SetTitle("Local Efficiency map 14")
+  hxyEff14.SetTitle("Local Efficiency map FR4")
   hxyEff15=hxyf15.Clone("hxyEff15")
   hxyEff15.Divide(hxy)
-  hxyEff15.SetTitle("Local Efficiency map 15")
+  hxyEff15.SetTitle("Local Efficiency map EM888")
   heff=TH1F("heff","Local Efficiency Ntk ext>15",110,0,1.1)
   dmin=max(0,effo*0.7)
   dmax=min(1.1,effo*1.6)
   nb=int((dmax-dmin)/0.005)
-  heff1=TH1F("heff1","Local Efficiency 1-13",nb,dmin,dmax)
-  heff32=TH1F("heff32","Local Efficiency 19-32",nb,dmin,dmax)
+  heff1=TH1F("heff1","Local Efficiency EM888",nb,dmin,dmax)
+  heff32=TH1F("heff32","Local Efficiency FR4",nb,dmin,dmax)
 
   for i in range(1,hxy.GetNbinsX()):
     for j in range(1,hxy.GetNbinsY()):
@@ -164,10 +170,10 @@ def getratio(run,chamber=1,sub="/tmp/",rebin=1,ncut=30):
         #if (xp>=19):
         #    heff32.Fill(hxyEff15.GetBinContent(i,j))
 # A partir du 1722 (14 et 15 inverted)
-        if (xp>=8.5 and xp<15 and yp<46 and yp>3):
+        if (xp>=7 and xp<=15 and yp<46 and yp>3):
             heff1.Fill(hxyEff15.GetBinContent(i,j))
             print hxy.GetBinContent(i,j), hxyf15.GetBinContent(i,j),hxyEff15.GetBinContent(i,j)
-        if (xp>17 and xp<27 and yp<46 and yp>3):
+        if (xp>=17 and xp<=26 and yp<46 and yp>3):
             heff32.Fill(hxyEff14.GetBinContent(i,j))
 
   print heff1.GetMean()*100,heff32.GetMean()*100
@@ -187,12 +193,12 @@ def getratio(run,chamber=1,sub="/tmp/",rebin=1,ncut=30):
   print y
   
   c.cd(5)
-  hxyEff14.Draw("COLZ")
+  hxyEff15.Draw("COLZ")
   c.Modified()
   c.Update()
   #val=raw_input()
   c.cd(6)
-  hxyEff15.Draw("COLZ")
+  hxyEff14.Draw("COLZ")
   c.Modified()
   c.Update()
   #val=raw_input()
@@ -1547,3 +1553,107 @@ def processAllDCS(fdb,dbo,diro=".",proc=True,store=True,draw=False,canvas=None,f
     fout.close()
 def approx(v,v1,v2,a1,a2):
   return a1+(v-v1)*(a2-a1)*1./(v2-v1)
+
+def pltres(run,direc="/data/NAS/EM888/Current"):
+
+    _file0 = TFile("%s/histo%d_0.root" % (direc,run));
+    c=TCanvas("c","Strip studies %d" % run ,545,345);
+    _file0.cd("/FEB/Chamber1/Strips/");
+    
+    XY = _file0.Get("/FEB/Chamber1/Strips/XY");									       
+    XY.SetTitle("Strip hits position in the time window (7400 V Thr 525)");
+    XY.GetXaxis().SetRangeUser(0.,35.);
+    XY.GetYaxis().SetTitle("Y_{Strip} (cm)");
+    XY.GetXaxis().SetTitle("X_{Strip} (cm)");
+    XY.Draw();
+    c.SaveAs("Run%d_StripXYAll.png" % run);
+    XYMin = _file0.Get("/FEB/Chamber1/Strips/XYMin");									       
+    XYMin.SetTitle("Strip hits position nearest to the extrapolation (7400 V Thr 525)");
+    XYMin.GetXaxis().SetRangeUser(0.,35.);
+    XYMin.GetYaxis().SetTitle("Y_{Strip} (cm)");
+    XYMin.GetXaxis().SetTitle("X_{Strip} (cm)");
+    XYMin.Draw();
+    c.SaveAs("Run%d_StripXYMin.png" % run);
+    XYSel = _file0.Get("/FEB/Chamber1/Strips/XYSel");
+    XYSel.SetTitle("Strip hit associated (7400 V Thr 525)");
+    XYSel.GetXaxis().SetRangeUser(0.,35.);
+    XYSel.GetYaxis().SetTitle("Y_{Strip} (cm)");
+    XYSel.GetXaxis().SetTitle("X_{Strip} (cm)");
+    XYSel.Draw();
+    c.SaveAs("Run%d_StripXYSelected.png" % run);
+
+    DXDY = _file0.Get("/FEB/Chamber1/Strips/DXDY");
+    DXDY.SetTitle("Distance of nearest hit to the extrapolation (7400 V Thr 525)");
+    DXDY.GetYaxis().SetTitle("#delta Y_{Strip} (cm)");
+    DXDY.GetXaxis().SetTitle("#delta X_{Strip} (cm)");
+    DXDY.Draw();
+    c.SaveAs("Run%d_StripDXDYSelected.png" % run);
+
+    AbsoluteTimeDelta= _file0.Get("/FEB/Chamber1/Strips/AbsoluteTimeDelta");
+    AbsoluteTimeDelta.SetTitle("Other hits, Absolute Time distance to the selected hit time (7400 V Thr 525)");
+    AbsoluteTimeDelta.GetXaxis().SetTitle("#delta T_{Absolute} (ns)");
+    AbsoluteTimeDelta.GetYaxis().SetTitle("Number of hits");
+    AbsoluteTimeDelta.GetXaxis().SetRangeUser(-300.,300.);
+    AbsoluteTimeDelta.Draw();
+    c.SaveAs("Run%d_StripAbsoluteDeltaT.png" % run);
+    AbsoluteTimeDelta.GetXaxis().SetRangeUser(-30.,130.);
+    AbsoluteTimeDelta.Draw();
+    c.SaveAs("Run%d_StripAbsoluteDeltaTZoomed.png" % run);
+
+    _file0.cd("/FEB/Chamber1/ClusterNew/");
+  
+    XYC = _file0.Get("/FEB/Chamber1/ClusterNew/XY");									       
+    XYC.SetTitle("Cluster position in the time window (7400 V Thr 525)");
+    XYC.GetXaxis().SetRangeUser(0.,35.);
+    XYC.GetYaxis().SetTitle("Y_{Strip} (cm)");
+    XYC.GetXaxis().SetTitle("X_{Strip} (cm)");
+    XYC.Draw();
+    c.SaveAs("Run%d_ClusterXYAll.png" % run);
+    
+    XYMinC = _file0.Get("/FEB/Chamber1/ClusterNew/XYMax");									       
+    XYMinC.SetTitle("Cluster position nearest to the extrapolation (7400 V Thr 525)");
+    XYMinC.GetXaxis().SetRangeUser(0.,35.);
+    XYMinC.GetYaxis().SetTitle("Y_{Strip} (cm)");
+    XYMinC.GetXaxis().SetTitle("X_{Strip} (cm)");
+    XYMinC.Draw();
+    c.SaveAs("Run%d_ClusterXYMin.png" % run);
+    
+    XYSelC = _file0.Get("/FEB/Chamber1/ClusterNew/XYSel");
+    XYSelC.SetTitle("Cluster associated (7400 V Thr 525)");
+    XYSelC.GetXaxis().SetRangeUser(0.,35.);
+    XYSelC.GetYaxis().SetTitle("Y_{Strip} (cm)");
+    XYSelC.GetXaxis().SetTitle("X_{Strip} (cm)");
+    XYSelC.Draw();
+    c.SaveAs("Run%d_ClusterXYSelected.png" % run);
+
+    DXDYC = _file0.Get("/FEB/Chamber1/ClusterNew/DIST");
+    DXDYC.SetTitle("Distance of nearest cluster to the extrapolation (7400 V Thr 525)");
+    DXDYC.GetYaxis().SetTitle("#delta Y_{Strip} (cm)");
+    DXDYC.GetXaxis().SetTitle("#delta X_{Strip} (cm)");
+    DXDYC.Draw();
+    c.SaveAs("Run%d_ClusterDXDYSelected.png" % run);
+
+    hnclus= _file0.Get("/FEB/Chamber1/ClusterNew/Clusters");
+    hnclus.SetTitle("Number of clusters (7400 V Thr 525)");
+    hnclus.GetXaxis().SetTitle("Number of clusters reconstructed in the event");
+    hnclus.GetYaxis().SetTitle("Number of events");
+    hnclus.Draw();
+    c.SaveAs("Run%d_ClusterNclus.png" % run);
+    
+    cluss= _file0.Get("/FEB/Chamber1/ClusterNew/ClusterSize");
+    cluss.SetTitle("All clusters size (7400 V Thr 525)");
+    cluss.GetXaxis().SetTitle("Number of strip hits in cluster");
+    cluss.GetYaxis().SetTitle("Number of events");
+    cluss.Draw();
+    c.SaveAs("Run%d_ClusterClusterSize.png" % run);
+    
+    cluss1= _file0.Get("/FEB/Chamber1/ClusterNew/ClusterSize1");
+    cluss1.SetTitle("Associated cluster  size (7400 V Thr 525)");
+    cluss1.GetXaxis().SetTitle("Number of strip hits in cluster");
+    cluss1.GetYaxis().SetTitle("Number of events");
+    cluss1.Draw();
+    c.SaveAs("Run%d_ClusterClusterSizeAssociated.png" % run);
+ 
+
+
+
