@@ -10,6 +10,9 @@
 using namespace sdhcal;
 #define LPCB 160.
 #define VPCB (160. / 8.7)
+#define VEM888 15.58
+#define VFR4 14.62
+
 namespace Lmana
 {
   class TdcStrip
@@ -47,12 +50,18 @@ namespace Lmana
 		     };
       float Lr=lr0-dlr[_str];
       float Lc=lc[_str];
-      return _shift+(Ls+Lr-Lc-VPCB*(_t1-_t0))/2.0;
+      float yloc=0;
+      if (_str<=16)
+	yloc= _shift+(Ls+Lr-Lc-VEM888*(_t1-_t0))/2.0;
+      else
+	yloc= _shift+(Ls+Lr-Lc-VFR4*(_t1-_t0))/2.0;
+      return yloc;
+	//cos(abs(_str-16)*20./96*3.14159265359/180.)*yloc;
       //return _shift + 160. - (_t1 - _t0) * 18.39 / 2.0;
     }
     inline double xpos() const
     {
-      return _str * 0.96;
+      return _str * 0.96-(_str-16)*0.08;
     }
     inline double X(){return xpos();}
     inline double Y(){return ypos();}

@@ -304,7 +304,7 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
     _fevt.tk_pchi2=top_tk.pchi2();
     _fevt.tk_plans=top_tk.plans();
   ROOT::Math::XYZPoint p=top_tk.extrapolate(82);
-  _pex.SetXYZ(33-p.Y(),50-p.X(),p.Z());
+  _pex.SetXYZ(33-p.Y(),88-p.X(),p.Z()); //was 50-p.X() (100-12 connecteur strip)
 
   _fevt.pex_x[0]=_pex.X();
   _fevt.pex_x[1]=_pex.Y();
@@ -838,12 +838,19 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
   _strips.clear();
   std::vector<TdcChannel*> c_strip[128];
   for (int i=0;i<128;i++) c_strip[i].clear();
-  float maxtime=0,mttime=0;uint32_t nch=0,ntrg=0;
+  float maxtime=0,mttime=1E12;uint32_t nch=0,ntrg=0;
   std::bitset<48> stfeb(0);
+   for (auto x=vChannel.begin();x!=vChannel.end();x++)
+    {
+      if (x->channel()==1) continue;
+      if (x->pedSubTime(_geo->feb(x->feb()))< mttime)
+	mttime= x->pedSubTime(_geo->feb(x->feb()));
+    }
   for (auto x=vChannel.begin();x!=vChannel.end();x++)
     {
       // Drop Trigger Channel
       if (x->channel()==1) continue;
+      if (x->pedSubTime(_geo->feb(x->feb()))>(40+mttime)) continue;
       std::stringstream sraw;
       sraw<<"/"<<subdir<<"/Chamber"<<chamber<<"/Raw/";
       TH1* hchan=_rh->GetTH1(sraw.str()+"Channels");
@@ -1056,7 +1063,7 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 		  if (abs(_pex.X()-ts.xpos())<5.)
 		    hdts->Fill(_pex.Y()-ts.ypos());
 		
-		  if (ts.ypos()<-10 || ts.ypos()>170.) continue;
+		  if (ts.ypos()<-70 || ts.ypos()>250.) continue;
 		  x->setUsed(true);
 		  y->setUsed(true);
 		   _strips.push_back(ts);
@@ -1101,38 +1108,49 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
       TH2* hs_dyvsy=_rh->GetTH2(s_src.str()+"dyvsy");
       TH1* hs_abst=_rh->GetTH1(s_src.str()+"TOA");
       TH1* hs_dtmore=_rh->GetTH1(s_src.str()+"AbsoluteTimeDelta");
-      TH1* hs_dt150=_rh->GetTH1(s_src.str()+"AbsoluteTimeDelta150");
-      TH1* hs_dt50=_rh->GetTH1(s_src.str()+"AbsoluteTimeDelta50");
+      TH1* hs_dxmore=_rh->GetTH1(s_src.str()+"Xtosel");
+      TH1* hs_dxsel=_rh->GetTH1(s_src.str()+"Xtoex");
+      TH1* hs_dthrem8=_rh->GetTH1(s_src.str()+"ADTHREM888");
+      TH1* hs_dtlrem8=_rh->GetTH1(s_src.str()+"ADTLREM888");
+      TH1* hs_dthrfr4=_rh->GetTH1(s_src.str()+"ADTHRFR4");
+      TH1* hs_dtlrfr4=_rh->GetTH1(s_src.str()+"ADTLRFR4");
       TH1* hs_t1t0150=_rh->GetTH1(s_src.str()+"T1T0_150");
       TH1* hs_dist=_rh->GetTH1(s_src.str()+"Dist2Ext");
 
       if (hs_xy==NULL)
 	{
 	      
-	  hs_xy=_rh->BookTH2(s_src.str()+"XY",48,0.,48.,420,-10.,200.);
-	  hs_xym=_rh->BookTH2(s_src.str()+"XYMore",48,0.,48.,420,-10.,200.);
-	  hs_xym20=_rh->BookTH2(s_src.str()+"XYMore20",48,0.,48.,420,-10.,200.);
-	  hs_xym50=_rh->BookTH2(s_src.str()+"XYMore50",48,0.,48.,420,-10.,200.);
-	  hs_xysel=_rh->BookTH2(s_src.str()+"XYSel",48,0.,48.,420,-10.,200.);
-	  hs_xymin=_rh->BookTH2(s_src.str()+"XYMin",48,0.,48.,420,-10.,200.);
+	  hs_xy=_rh->BookTH2(s_src.str()+"XY",48,0.,48.,420,-60.,250.);
+	  hs_xym=_rh->BookTH2(s_src.str()+"XYMore",48,0.,48.,420,-60.,250.);
+	  hs_xym20=_rh->BookTH2(s_src.str()+"XYMore20",48,0.,48.,420,-60.,250.);
+	  hs_xym50=_rh->BookTH2(s_src.str()+"XYMore50",48,0.,48.,420,-60.,250.);
+	  hs_xysel=_rh->BookTH2(s_src.str()+"XYSel",48,0.,48.,420,-60.,250.);
+	  hs_xymin=_rh->BookTH2(s_src.str()+"XYMin",48,0.,48.,420,-60.,250.);
 	  hs_dxdy=_rh->BookTH2(s_src.str()+"DXDY",100,-10.,10.,600,-20.,220.);
 	  hs_dxdy20=_rh->BookTH2(s_src.str()+"DXDY20",100,-10.,10.,600,-20.,220.);
 	  hs_dxdy50=_rh->BookTH2(s_src.str()+"DXDY50",100,-10.,10.,600,-20.,220.);
 	  
 	  hs_dxvsx=_rh->BookTH2(s_src.str()+"dxvsx",48,0.,48.,100,-10.,10.);
 	  hs_dyvsx=_rh->BookTH2(s_src.str()+"dyvsx",48,0.,48.,100,-20.,20.);
-	  hs_dxvsy=_rh->BookTH2(s_src.str()+"dxvsy",105,-10.,200.,100,-10.,10.);
-	  hs_dyvsy=_rh->BookTH2(s_src.str()+"dyvsy",105,-10.,200.,100,-20.,20.);
+	  hs_dxvsy=_rh->BookTH2(s_src.str()+"dxvsy",105,-60.,250.,100,-10.,10.);
+	  hs_dyvsy=_rh->BookTH2(s_src.str()+"dyvsy",105,-60.,250.,100,-20.,20.);
 	  hs_abst=_rh->BookTH1(s_src.str()+"TOA",100,-570.,-600.);
 	  hs_dtmore=_rh->BookTH1(s_src.str()+"AbsoluteTimeDelta",20000,-2000.,2000.);
-	  hs_dt150=_rh->BookTH1(s_src.str()+"AbsoluteTimeDelta150",20000,-2000.,2000.);
+	  hs_dxmore=_rh->BookTH1(s_src.str()+"Xtosel",200,-30.,30.);
+	  hs_dxsel=_rh->BookTH1(s_src.str()+"Xtoex",200,-30.,30.);
+	  hs_dthrem8=_rh->BookTH1(s_src.str()+"ADTHREM888",20000,-2000.,2000.);
+	  hs_dtlrem8=_rh->BookTH1(s_src.str()+"ADTLREM888",20000,-2000.,2000.);
+	  hs_dthrfr4=_rh->BookTH1(s_src.str()+"ADTHRFR4",20000,-2000.,2000.);
+	  hs_dtlrfr4=_rh->BookTH1(s_src.str()+"ADTLRFR4",20000,-2000.,2000.);
 	  hs_t1t0150=_rh->BookTH1(s_src.str()+"T1T0_150",2000,-5.,100.);
-	  hs_dt50=_rh->BookTH1(s_src.str()+"AbsoluteTimeDelta50",20000,-2000.,2000.);
+
 	  hs_dist=_rh->BookTH1(s_src.str()+"Dist2Ext",2000,0.,200.);
 	}
 
       double s_distmin=99999999.;
-      double s_tmsel=0;
+      double s_tmsel=0,s_xmsel=0,s_ymsel=0;
+      double t0_sel=0,t1_sel=0;
+
       for (auto x:_strips)
 	{
 	  hs_abst->Fill(x.TM());
@@ -1144,6 +1162,10 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 	    {
 	      s_distmin=dist;
 	      s_tmsel=x.TM();
+	      t0_sel=x.t0();
+	      t1_sel=x.t1();
+	      s_xmsel=x.X();
+	      s_ymsel=x.Y();
 	    }
 	}
       
@@ -1153,6 +1175,8 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 	    {
 	       hs_xymin->Fill(x.X(),x.Y());
 	       hs_dxdy->Fill(x.X()-_pex.X(),x.Y()-_pex.Y());
+	       if (x.Y()>125 &&x.Y()<160)
+		 hs_dxsel->Fill(x.X()-_pex.X());
 	      if (s_distmin<8)
 		{
 	      //hposcma->Fill(x.X(),x.Y());
@@ -1163,17 +1187,35 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 		  hs_dxvsy->Fill(_pex.Y(),x.X()-_pex.X());
 		  hs_dyvsy->Fill(_pex.Y(),x.Y()-_pex.Y());
 		}
-	      
+	     
 	    }
 	  else
 	    {
 	      hs_xym->Fill(x.X(),x.Y());
-	      hs_dtmore->Fill(x.TM()-s_tmsel);
-	      if (x.Y()>150) {
-		hs_dt150->Fill(x.TM()-s_tmsel);
-		hs_t1t0150->Fill(x.t1()-x.t0());
-	      }
-	      if (x.Y()>100 &&x.Y()<150) hs_dt50->Fill(x.TM()-s_tmsel);
+	      
+
+	       double dist=sqrt((_pex.X()-x.X())*(_pex.X()-x.X())+
+				(_pex.Y()-x.Y())*(_pex.Y()-x.Y()));
+	       if (dist>15. && x.Y()>125 &&x.Y()<160)
+		 {
+		   hs_dtmore->Fill(x.TM()-s_tmsel);
+		   hs_dxmore->Fill(x.X()-s_xmsel);
+		   hs_t1t0150->Fill(x.t1()-x.t0());
+		 }
+
+		
+
+	       if (x.strip()<=16 && dist>15. && x.Y()>125 &&x.Y()<160)
+		{
+		  hs_dthrem8->Fill(x.t0()-t0_sel);
+		  hs_dtlrem8->Fill(x.t1()-t1_sel);
+		}
+	      if (x.strip()>=17 && dist>15. && x.Y()>125 &&x.Y()<160)
+		{
+		  hs_dthrfr4->Fill(x.t0()-t0_sel);
+		  hs_dtlrfr4->Fill(x.t1()-t1_sel);
+		}
+		
 	      if (abs(x.TM()-s_tmsel)<20)
 		{
 		  hs_xym20->Fill(x.X(),x.Y());
@@ -1282,22 +1324,22 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
       if (hposc==NULL)
 	{
 	      
-	  hposc=_rh->BookTH2(src.str()+"XY",48,0.,48.,420,-10.,200.);
-	  hposs=_rh->BookTH2(src.str()+"XYStrip",48,0.,48.,420,-10.,200.);
-	  hposc1=_rh->BookTH2(src.str()+"XY1",48,0.,48.,420,-10.,200.);
-	  hposcm=_rh->BookTH2(src.str()+"XYMore",48,0.,48.,420,-10.,200.);
-	  hposcm20=_rh->BookTH2(src.str()+"XYMore20",48,0.,48.,420,-10.,200.);
-	  hposcm50=_rh->BookTH2(src.str()+"XYMore50",48,0.,48.,420,-10.,200.);
-	  hposcma=_rh->BookTH2(src.str()+"XYMax",48,0.,48.,420,-10.,200.);
-	  hposok=_rh->BookTH2(src.str()+"XYSel",48,0.,48.,180,-20.,70.);
+	  hposc=_rh->BookTH2(src.str()+"XY",48,0.,48.,420,-60.,250.);
+	  hposs=_rh->BookTH2(src.str()+"XYStrip",48,0.,48.,420,-60.,250.);
+	  hposc1=_rh->BookTH2(src.str()+"XY1",48,0.,48.,420,-60.,250.);
+	  hposcm=_rh->BookTH2(src.str()+"XYMore",48,0.,48.,420,-60.,250.);
+	  hposcm20=_rh->BookTH2(src.str()+"XYMore20",48,0.,48.,420,-60.,250.);
+	  hposcm50=_rh->BookTH2(src.str()+"XYMore50",48,0.,48.,420,-60.,250.);
+	  hposcma=_rh->BookTH2(src.str()+"XYMax",48,0.,48.,420,-60.,250.);
+	  hposok=_rh->BookTH2(src.str()+"XYSel",48,0.,48.,180,-20.,170.);
 	  hposdma=_rh->BookTH2(src.str()+"DIST",100,-10.,10.,600,-20.,220.);
 	  hposdma20=_rh->BookTH2(src.str()+"DIST20",100,-10.,10.,600,-20.,220.);
 	  hposdma50=_rh->BookTH2(src.str()+"DIST50",100,-10.,10.,600,-20.,220.);
 	  hpdxvsx=_rh->BookTH2(src.str()+"dxvsx",48,0.,48.,100,-10.,10.);
 	  hpdyvsx=_rh->BookTH2(src.str()+"dyvsx",48,0.,48.,100,-20.,20.);
-	  hpdxvsy=_rh->BookTH2(src.str()+"dxvsy",105,-10.,200.,100,-10.,10.);
-	  hpdyvsy=_rh->BookTH2(src.str()+"dyvsy",105,-10.,200.,100,-20.,20.);
-	  hposx=_rh->BookTH2(src.str()+"XYX",48,0.,48.,420,-10.,200.);
+	  hpdxvsy=_rh->BookTH2(src.str()+"dxvsy",105,-60.,250.,100,-10.,10.);
+	  hpdyvsy=_rh->BookTH2(src.str()+"dyvsy",105,-60.,250.,100,-20.,20.);
+	  hposx=_rh->BookTH2(src.str()+"XYX",48,0.,48.,420,-60.,250.);
 	  hncl=_rh->BookTH1(src.str()+"Clusters",32,0.,32.);
 	  hmulc=_rh->BookTH1(src.str()+"ClusterSize",32,0.,32.);
 	  hmulc1=_rh->BookTH1(src.str()+"ClusterSize1",32,0.,32.);

@@ -97,6 +97,11 @@ class analyse:
             c.SaveAs("IRPC%d_dy_%s%d.png" % (self.run,hn,ist))
             
         val=raw_input()
+        str_res='"delta":[0.'
+        for i in range(1,48):
+            str_res=str_res+",%.2f" % res[i]
+        str_res=str_res+"]"
+        print str_res
         y=np.array(res)
         dy=np.array(dres)
         #np.set_printoptions(precision=1)
@@ -156,20 +161,20 @@ class analyse:
         c.cd(4)
         hxyf.Draw("COLZ")
         rbx=rebin
-        rby=2
+        rby=1
         hxy.Rebin2D(rbx,rby)
         hxyf.Rebin2D(rbx,rby)
         hxyf14.Rebin2D(rbx,rby)
         hxyf15.Rebin2D(rbx,rby)
         hxyt.Rebin2D(rbx,rby)
         hxy.SetAxisRange(0.,35.,"X")
-        hxy.SetAxisRange(0.,60.,"Y")
+        hxy.SetAxisRange(20.,120.,"Y")
         hxyf.SetAxisRange(0.,35.,"X")
-        hxyf.SetAxisRange(0.,60.,"Y")
+        hxyf.SetAxisRange(20.,120.,"Y")
         hxyf14.SetAxisRange(0.,35.,"X")
-        hxyf14.SetAxisRange(0.,60.,"Y")
+        hxyf14.SetAxisRange(20.,120.,"Y")
         hxyf15.SetAxisRange(0.,35.,"X")
-        hxyf15.SetAxisRange(0.,60.,"Y")
+        hxyf15.SetAxisRange(20.,120.,"Y")
         hxyEff=hxyf.Clone("hxyEff")
         hxyEff.Divide(hxy)
         hxyEff.SetTitle("Local Efficiency map")
