@@ -81,8 +81,14 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
   TH1* hdt=_rh->GetTH1("/gric/dt");
   TH1* hch=_rh->GetTH1("/gric/tdcchannel");
   TH1* hinti=_rh->GetTH1("/gric/InTime");
+  TH1* htkchi2=_rh->GetTH1("/gric/tkchi2");
+  TH1* htkax=_rh->GetTH1("/gric/tkax");
+  TH1* htkay=_rh->GetTH1("/gric/tkay");
   if (hzx==NULL)
     {
+      htkchi2=_rh->BookTH1("/gric/tkchi2",300,0.,1.01);
+      htkax=_rh->BookTH1("/gric/tkax",300,-2.,2.);
+      htkay=_rh->BookTH1("/gric/tkay",300,-2.,2.);
       hcount=_rh->BookTH1("/gric/Count",30,0.1,30.1);
       hdt=_rh->BookTH1("/gric/dt",500,-250.,250.);
       hch=_rh->BookTH1("/gric/tdcchannel",70,0.,70.);
@@ -114,6 +120,7 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
       
       splane<<"/pmr/PLANE"<<chid<<"/";
       TH1* hfcs=_rh->GetTH1(splane.str()+"FrameCountSel");
+      //      TH1* hax=_rh->GetTH1(splane.str()+"ax");
       if (hfcs==NULL)
 	{
 	  hfcs=_rh->BookTH1(splane.str()+"FrameCountSel",65,0.,65.0);
@@ -253,7 +260,12 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
   else
     return;
   if (top_tk.orig().X()>45) return;
-  if (top_tk.pchi2()<0.05) return;
+  htkchi2->Fill(top_tk.pchi2());
+  htkax->Fill(top_tk.dir().X());
+  htkay->Fill(top_tk.dir().Y());
+  if (top_tk.pchi2()<0.4) return;
+  if (abs(top_tk.dir().X())>0.5) return;
+  if (abs(top_tk.dir().Y())>0.5) return;
   //if (top_tk.plans()!=30) return;
   hcount->Fill(20.);
   uint32_t cnt[20];
@@ -318,6 +330,7 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
   for (auto x:e->tdcChannels())
     {
       uint32_t coarsedif=ibc*80;
+     
       while (coarsedif>((1<<24)-1))
 	coarsedif -=((1<<24)-1);
       double ddt=(coarsedif-(x.tdcTime()/2.5))*2.5/200.;
@@ -1042,7 +1055,7 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 		{
 		  lydaq::TdcChannel* y =c_strip[i][jc];
 		  if (y->side(_geo->feb(y->feb()))!=0) continue;
-		  //if (y->used()) continue;
+		  if (y->used()) continue;
 		  double t0=y->pedSubTime(_geo->feb(y->feb()));
 		  //  fprintf(stderr,"Side 0 FEB %d Channel %d Strip %d Shift %d Side %d %f raw %f\n",y->feb(),y->channel(),y->detectorStrip(_geo->feb(y->feb())),_geo->feb(y->feb()).stripShift,y->side(_geo->feb(y->feb())),y->pedSubTime(_geo->feb(y->feb())),t1);
 		  //fprintf(stderr,"Strip  t0 %f  \n",t0);
@@ -1060,10 +1073,20 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 		  TH1* hdts=_rh->GetTH1(srcs.str());
 		  if (hdts==NULL)
 		    hdts=_rh->BookTH1(srcs.str(),300,-300,300.);
-		  if (abs(_pex.X()-ts.xpos())<5.)
-		    hdts->Fill(_pex.Y()-ts.ypos());
+		  std::stringstream srcd;
+		  srcd<<"/Align/dt"<<i;
+		  //std:cout<<srcs.str()<<std::endl;
+		  TH1* hddt=_rh->GetTH1(srcd.str());
+		  if (hddt==NULL)
+		    hddt=_rh->BookTH1(srcd.str(),300,-10.,40.);
+
+		  if (abs(_pex.X()-ts.xpos())<3.)
+		    {
+		      hdts->Fill(_pex.Y()-ts.ypos());
+		      hddt->Fill(t1-t0);
+		    }
 		
-		  if (ts.ypos()<-70 || ts.ypos()>250.) continue;
+		  if (ts.ypos()<-100 || ts.ypos()>350.) continue;
 		  x->setUsed(true);
 		  y->setUsed(true);
 		   _strips.push_back(ts);
@@ -1198,12 +1221,20 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 				(_pex.Y()-x.Y())*(_pex.Y()-x.Y()));
 	       if (dist>15. && x.Y()>125 &&x.Y()<160)
 		 {
+		   printf("End of strip issue %d \n",_event);
+		   // getchar();
 		   hs_dtmore->Fill(x.TM()-s_tmsel);
 		   hs_dxmore->Fill(x.X()-s_xmsel);
 		   hs_t1t0150->Fill(x.t1()-x.t0());
 		 }
 
-		
+		 if (dist>15. && x.Y()>170)
+		 {
+		   printf("Xtalk issue %d \n",_event);
+		   // getchar();
+		 
+		 }
+
 
 	       if (x.strip()<=16 && dist>15. && x.Y()>125 &&x.Y()<160)
 		{

@@ -100,8 +100,11 @@ class analyse:
         str_res='"delta":[0.'
         for i in range(1,48):
             str_res=str_res+",%.2f" % res[i]
-        str_res=str_res+"]"
+        str_res=str_res+"],\n"
         print str_res
+        fout=open("align_%d.json" % (self.run),"w");
+        fout.write(str_res);
+        fout.close()
         y=np.array(res)
         dy=np.array(dres)
         #np.set_printoptions(precision=1)
@@ -161,29 +164,35 @@ class analyse:
         c.cd(4)
         hxyf.Draw("COLZ")
         rbx=rebin
-        rby=1
-        hxy.Rebin2D(rbx,rby)
-        hxyf.Rebin2D(rbx,rby)
-        hxyf14.Rebin2D(rbx,rby)
-        hxyf15.Rebin2D(rbx,rby)
-        hxyt.Rebin2D(rbx,rby)
-        hxy.SetAxisRange(0.,35.,"X")
-        hxy.SetAxisRange(20.,120.,"Y")
-        hxyf.SetAxisRange(0.,35.,"X")
-        hxyf.SetAxisRange(20.,120.,"Y")
-        hxyf14.SetAxisRange(0.,35.,"X")
-        hxyf14.SetAxisRange(20.,120.,"Y")
-        hxyf15.SetAxisRange(0.,35.,"X")
-        hxyf15.SetAxisRange(20.,120.,"Y")
-        hxyEff=hxyf.Clone("hxyEff")
-        hxyEff.Divide(hxy)
-        hxyEff.SetTitle("Local Efficiency map")
-        hxyEff14=hxyf14.Clone("hxyEff14")
-        hxyEff14.Divide(hxy)
-        hxyEff14.SetTitle("Local Efficiency map FR4")
-        hxyEff15=hxyf15.Clone("hxyEff15")
-        hxyEff15.Divide(hxy)
-        hxyEff15.SetTitle("Local Efficiency map EM888")
+        rby=2
+        chxy=hxy.Clone("chxy")
+        chxyt=hxyt.Clone("chxyt")
+        chxyf=hxyf.Clone("chxyf")
+        chxyf14=hxyf14.Clone("chxyf14")
+        chxyf15=hxyf15.Clone("chxyf15")
+        
+        chxy.Rebin2D(rbx,rby)
+        chxyf.Rebin2D(rbx,rby)
+        chxyf14.Rebin2D(rbx,rby)
+        chxyf15.Rebin2D(rbx,rby)
+        chxyt.Rebin2D(rbx,rby)
+        chxy.SetAxisRange(0.,35.,"X")
+        chxy.SetAxisRange(20.,120.,"Y")
+        chxyf.SetAxisRange(0.,35.,"X")
+        chxyf.SetAxisRange(20.,120.,"Y")
+        chxyf14.SetAxisRange(0.,35.,"X")
+        chxyf14.SetAxisRange(20.,120.,"Y")
+        chxyf15.SetAxisRange(0.,35.,"X")
+        chxyf15.SetAxisRange(20.,120.,"Y")
+        chxyEff=chxyf.Clone("chxyEff")
+        chxyEff.Divide(chxy)
+        chxyEff.SetTitle("Local Efficiency map")
+        chxyEff14=chxyf14.Clone("chxyEff14")
+        chxyEff14.Divide(chxy)
+        chxyEff14.SetTitle("Local Efficiency map FR4")
+        chxyEff15=chxyf15.Clone("chxyEff15")
+        chxyEff15.Divide(chxy)
+        chxyEff15.SetTitle("Local Efficiency map EM888")
         heff=TH1F("heff","Local Efficiency Ntk ext>15",110,0,1.1)
         dmin=max(0,effo*0.7)
         dmax=min(1.1,effo*1.6)
@@ -191,23 +200,23 @@ class analyse:
         heff1=TH1F("heff1","Local Efficiency EM888",nb,dmin,dmax)
         heff32=TH1F("heff32","Local Efficiency FR4",nb,dmin,dmax)
 
-        for i in range(1,hxy.GetNbinsX()):
-            for j in range(1,hxy.GetNbinsY()):
-                if (hxy.GetBinContent(i,j)>ncut):
-                    heff.Fill(hxyEff.GetBinContent(i,j))
-                    xp=hxy.GetXaxis().GetBinCenter(i)
-                    yp=hxy.GetYaxis().GetBinCenter(j)
+        for i in range(1,chxy.GetNbinsX()):
+            for j in range(1,chxy.GetNbinsY()):
+                if (chxy.GetBinContent(i,j)>ncut):
+                    heff.Fill(chxyEff.GetBinContent(i,j))
+                    xp=chxy.GetXaxis().GetBinCenter(i)
+                    yp=chxy.GetYaxis().GetBinCenter(j)
                     # Jusqu'au run 1721
                     #if (xp<=13):
-                    #    heff1.Fill(hxyEff14.GetBinContent(i,j))
+                    #    heff1.Fill(chxyEff14.GetBinContent(i,j))
                     #if (xp>=19):
-                    #    heff32.Fill(hxyEff15.GetBinContent(i,j))
+                    #    heff32.Fill(chxyEff15.GetBinContent(i,j))
                     # A partir du 1722 (14 et 15 inverted)
-                    if (xp>=7 and xp<=15 and yp<46 and yp>3):
-                        heff1.Fill(hxyEff15.GetBinContent(i,j))
-                        print hxy.GetBinContent(i,j), hxyf15.GetBinContent(i,j),hxyEff15.GetBinContent(i,j)
-                    if (xp>=17 and xp<=26 and yp<46 and yp>3):
-                        heff32.Fill(hxyEff14.GetBinContent(i,j))
+                    if (xp>=8 and xp<=15 and yp<84 and yp>41):
+                        heff1.Fill(chxyEff15.GetBinContent(i,j))
+                        print chxy.GetBinContent(i,j), chxyf15.GetBinContent(i,j),chxyEff15.GetBinContent(i,j)
+                    if (xp>=17 and xp<=26 and yp<84 and yp>41):
+                        heff32.Fill(chxyEff14.GetBinContent(i,j))
 
         print heff1.GetMean()*100,heff32.GetMean()*100
 
@@ -226,12 +235,12 @@ class analyse:
         print y
   
         c.cd(5)
-        hxyEff15.Draw("COLZ")
+        chxyEff15.Draw("COLZ")
         c.Modified()
         c.Update()
         #val=raw_input()
         c.cd(6)
-        hxyEff14.Draw("COLZ")
+        chxyEff14.Draw("COLZ")
         c.Modified()
         c.Update()
         #val=raw_input()

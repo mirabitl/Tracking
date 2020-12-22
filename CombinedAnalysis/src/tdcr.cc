@@ -37,6 +37,7 @@ int main(int argc, char **argv )
   std::string dirp="/home/acqilc/backup_aug2018";
   std::string prn="NONE";
   int32_t runask=0,nmax=5000000;
+  bool noise=false;
   char c;
    while ( (c = getopt(argc, argv, "g:r:d:m:p:hv")) != -1 ) {
      fprintf(stderr,"%c read\n",c);
@@ -91,6 +92,13 @@ int main(int argc, char **argv )
                  * (car sa valeur pourrait être écrasée
                  * au prochain tour de boucle). */
 	      fprintf(stderr, "On serait verbose Usage: tdcr [options] \n");
+                break;
+            case 'n':
+                /* On stocke le pointeur vers l'argument
+                 * (car sa valeur pourrait être écrasée
+                 * au prochain tour de boucle). */
+	      fprintf(stderr, "Noise run \n");
+	      noise=true;
                 break;
 	case 'm':
                 /* Ici, on convertit la valeur de optarg
