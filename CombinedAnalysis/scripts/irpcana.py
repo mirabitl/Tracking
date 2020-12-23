@@ -10,7 +10,7 @@ class prettyfloat(float):
         return "%0.2f" % self
 
 class analyse:
-    def __init__(self,run,direc="/data/NAS/EM888/Current"):
+    def __init__(self,run,jsfile,direc="/data/NAS/EM888/Current"):
         self.run = run
         self.direc = direc
         self.f0 = TFile(direc+"/histo%d_0.root" % run)
@@ -22,6 +22,9 @@ class analyse:
         self.T0=0
         self.T=0
         self.Threshold=0
+        self.jsfile=jsfile
+        f=open(jsfile)
+        self.params=json.loads(f.read())
         
     def setConditions(self,hvapp,thr,p=0,t=0,p0=0,t0=0):
         self.HVapp=hvapp
@@ -53,6 +56,68 @@ class analyse:
         print 1-(0.2+0.8*P/990.*293./T)
         return  V*(0.2+0.8*P/990.*293./T)
 
+    def getdT(self):
+
+        c=TCanvas("irpc","Alignement Studies",545,342)
+        self.f0.cd("/Align")
+
+        gStyle.SetOptStat(0);
+        dT0=[]
+        dT1=[]
+        T0=[]
+        T1=[]
+        for i in range(48):
+            dT0.append(0)
+            T0.append(0)
+            dT1.append(0)
+            T1.append(0)
+        for ist in range(2,33):
+            hst0=self.f0.Get("/Align/Pedestal%dHR" % (ist))
+            hst1=self.f0.Get("/Align/Pedestal%dLR" % (ist))
+    
+            if (hst0!=None):
+                dT0[ist]=hst0.GetMean()
+            if (hst1!=None):
+                dT1[ist]=hst1.GetMean()
+        print dT0
+        print dT1
+        t0=0
+        t1=0
+        for ist in range(1,48):
+            T0[ist]=t0
+            t0=t0+dT0[ist]
+            T1[ist]=t1
+            t1=t1+dT1[ist]
+        print T0
+        print T1
+        ST0=[]
+        ST1=[]
+        ST0.append(0)
+        ST1.append(0)
+        
+        str_res='"st0":[0.'
+        for i in range(2,48):
+            str_res=str_res+",%.2f" % T0[i]
+            ST0.append(T0[i])
+        str_res=str_res+"],\n"
+        str_res+='"st1":[0.'
+        for i in range(2,48):
+            str_res=str_res+",%.2f" % T1[i]
+            ST1.append(T1[i])
+        str_res=str_res+"],\n"
+        
+        print str_res
+        fout=open("DT_%d.json" % (self.run),"w");
+        fout.write(str_res);
+        fout.close()
+
+        self.params["febs"][0]["st0"]=ST0
+        self.params["febs"][1]["st0"]=ST0
+        self.params["febs"][0]["st1"]=ST1
+        self.params["febs"][1]["st1"]=ST1
+        fo=open('DTalign_%d.json' % self.run, 'w')
+        json.dump(self.params,fo)
+        fo.close()
     def getdy(self,hn="strip"):
 
         c=TCanvas("irpc","Alignement Studies",545,342)
@@ -111,6 +176,12 @@ class analyse:
         np.set_printoptions(formatter={'float': '{: 0.2f}'.format})
         print y
         print dy
+        self.params["febs"][0]["delta"]=res
+        self.params["febs"][1]["delta"]=res
+        fo=open('DYalign_%d.json' % self.run, 'w')
+        json.dump(self.params,fo)
+        fo.close()
+
 
     def getratio(self,chamber=1,rebin=1,ncut=30):
         c=TCanvas("irpc","IRPC Studies",545,842)

@@ -111,8 +111,10 @@ namespace Lmana
     {
         _x = 0;
         _y = 0, _t0 = 0, _t1 = 0;
+	_bp=0;
         for (int i = 0; i < _strips.size() ; i++)
         {
+	  _bp|=(1<<_strips[i].strip());
           _x += _strips[i].xpos();
           _y += _strips[i].ypos();
           _t0 += _strips[i].t0();
@@ -183,10 +185,11 @@ namespace Lmana
     Lmana::TdcStrip &strip(int n) { return _strips[n]; }
     inline uint16_t chamber() const { return (_strips.size() > 0) ? _strips[0].chamber() : 0; }
     inline uint16_t dif() const { return (_strips.size() > 0) ? _strips[0].dif() : 0; }
-
+    inline uint64_t bp(){return _bp;}
   private:
     double _x, _y, _t0, _t1;
     std::vector<Lmana::TdcStrip> _strips;
+    uint64_t _bp;
   };
 
 class HR2Pad : public ROOT::Math::XYZPoint

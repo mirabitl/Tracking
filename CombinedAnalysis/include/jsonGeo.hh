@@ -25,7 +25,7 @@
 
 std::string itoa(int k);
 
-
+#define MAXSTRIP 49
 
 class jsonFebInfo
 {
@@ -33,14 +33,16 @@ public:
   jsonFebInfo(){id=0;}
   uint32_t id;
   uint32_t chamber;
-  uint32_t tdc2strip[49];
-  uint32_t  tdc2side[49];
+  uint32_t tdc2strip[MAXSTRIP];
+  uint32_t  tdc2side[MAXSTRIP];
   uint32_t stripShift;
   float polarity;
   float triggerMin,triggerMax,triggerMean,dt[2];
-  float timePedestal[49];
-  double dtc[49];
-  double timeped[49];
+  float timePedestal[MAXSTRIP];
+  float st0[MAXSTRIP];
+  float st1[MAXSTRIP];
+  double dtc[MAXSTRIP];
+  double timeped[MAXSTRIP];
   bool isEmpty(){return (id==0);}
   void dump()
   {

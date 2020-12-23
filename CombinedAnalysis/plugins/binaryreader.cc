@@ -264,8 +264,8 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
   htkax->Fill(top_tk.dir().X());
   htkay->Fill(top_tk.dir().Y());
   if (top_tk.pchi2()<0.4) return;
-  if (abs(top_tk.dir().X())>0.5) return;
-  if (abs(top_tk.dir().Y())>0.5) return;
+  if (abs(top_tk.dir().X())>0.4) return;
+  if (abs(top_tk.dir().Y())>0.4) return;
   //if (top_tk.plans()!=30) return;
   hcount->Fill(20.);
   uint32_t cnt[20];
@@ -415,6 +415,7 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
 }
 void binaryreader::processEvent(rbEvent* e)
 {
+  _erb=e;
   if (_event==0)
     {
       _geo->fillFebs(e->run());
@@ -835,7 +836,62 @@ int32_t binaryreader::TPrincipalComponents(double result[21],float zmin,float zm
 	return 0;
 }
 
+void binaryreader::fillTimePedestal( std::vector<lydaq::TdcChannel*> c_strip [])
+{
+  uint64_t bp=0;
+  for (int i=1;i<=32;i++)
+    {
+      double xexpect=i * 0.96-(i-16)*0.08;
+      if (abs(_pex.X()-xexpect)>3.) continue;
+      //fprintf(stderr,"Strip %d %f %d \n",i,abs(_pex.X()-xexpect),c_strip[i].size());
+      if (c_strip[i].size()==2) bp|=(1<<i);
+    }
+   std::bitset<64> bl(bp);
+   if (bl.count()>3) return;
+  //fprintf(stderr,"%lx \n",bp);
+  // getchar();
 
+  for (int is=1;is<32;is++)
+    if (((bp>>is)&1==1) && ((bp>>(is+1))&1==1))
+      {
+	// Strip is et is+1 hits
+	float t0=0,t0p=0,t1=0,t1p=0;
+	for (int j=0;j<c_strip[is].size();j++)
+	  {
+	    TdcChannel* x= c_strip[is][j];
+	    if (x->side(_geo->feb(x->feb()))==0)
+	      t0=x->pedSubTime(_geo->feb(x->feb()));
+	    else
+	      t1=x->pedSubTime(_geo->feb(x->feb()));
+	  }
+	for (int j=0;j<c_strip[is+1].size();j++)
+	  {
+	    TdcChannel* x= c_strip[is+1][j];
+	    if (x->side(_geo->feb(x->feb()))==0)
+	      t0p=x->pedSubTime(_geo->feb(x->feb()));
+	    else
+	      t1p=x->pedSubTime(_geo->feb(x->feb()));
+	  }
+
+	
+	std::stringstream srcs;
+	srcs<<"/Align/Pedestal"<<is+1;
+	//std:cout<<srcs.str()<<std::endl;
+	TH1* hdt0=_rh->GetTH1(srcs.str()+"HR");
+	TH1* hdt1=_rh->GetTH1(srcs.str()+"LR");
+	if (hdt0==NULL)
+	  {
+	    hdt0=_rh->BookTH1(srcs.str()+"HR",180,-30.,30.);
+	    hdt1=_rh->BookTH1(srcs.str()+"LR",180,-30.,30.);
+	  }
+	      
+	hdt0->Fill(t0p-t0);
+	hdt1->Fill(t1p-t1);
+	      
+      }
+
+
+}
 bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::string subdir)
 {
   float ch1_dt[128];
@@ -893,6 +949,8 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 	  
       nch++;
     }
+  if (nch>24) return false;
+  this->fillTimePedestal(c_strip);
   //if (nch) getchar();
   std::stringstream srcc;
   srcc<<"/"<<subdir<<"/Chamber"<<chamber<<"/";
@@ -1037,7 +1095,8 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 	{
 	  if (c_strip[i].size()>0)
 	    {
-	      fprintf(stderr,"Chamber %d Strip %d # %ld \n",chamber,i,c_strip[i].size());
+	      lydaq::TdcChannel* x =c_strip[i][0];
+	      fprintf(stderr,"Chamber %d Strip %d # %ld Tfirst %f\n",chamber,i,c_strip[i].size(),x->pedSubTime(_geo->feb(x->feb())));
 	      nstrip++;
 	      if (i<48)
 		stb.set(i,1);
@@ -1063,8 +1122,8 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 
 		  Lmana::TdcStrip ts(_geo->feb(x->feb()).chamber,x->feb(),x->detectorStrip(_geo->feb(x->feb())),t0,t1,_geo->feb(x->feb()).timePedestal[x->detectorStrip( _geo->feb(x->feb()))]);
 		  //if (i==1008)
-		    fprintf(stderr,"Strip %d c1 %d c0 %d  t1 %f t0 %f ypos %f expected %f \n",
-			    i,x->channel(),y->channel(),t1,t0,ts.ypos(),_pex.Y()); 
+		    fprintf(stderr,"Strip %d c1 %d c0 %d  t1 %f t0 %f ypos %f expected %f  DT %f\n",
+			    i,x->channel(),y->channel(),t1,t0,ts.ypos(),_pex.Y(),t1-t0); 
 
 
 		  std::stringstream srcs;
@@ -1087,6 +1146,7 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 		    }
 		
 		  if (ts.ypos()<-100 || ts.ypos()>350.) continue;
+		  if ((t1-t0)<12.) continue;
 		  x->setUsed(true);
 		  y->setUsed(true);
 		   _strips.push_back(ts);
@@ -1200,7 +1260,7 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 	       hs_dxdy->Fill(x.X()-_pex.X(),x.Y()-_pex.Y());
 	       if (x.Y()>125 &&x.Y()<160)
 		 hs_dxsel->Fill(x.X()-_pex.X());
-	      if (s_distmin<8)
+	      if (s_distmin<10)
 		{
 	      //hposcma->Fill(x.X(),x.Y());
 		  hs_xysel->Fill(x.X(),x.Y());
@@ -1209,6 +1269,8 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 		  hs_dyvsx->Fill(_pex.X(),x.Y()-_pex.Y());
 		  hs_dxvsy->Fill(_pex.Y(),x.X()-_pex.X());
 		  hs_dyvsy->Fill(_pex.Y(),x.Y()-_pex.Y());
+
+		  
 		}
 	     
 	    }
@@ -1222,7 +1284,7 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 	       if (dist>15. && x.Y()>125 &&x.Y()<160)
 		 {
 		   printf("End of strip issue %d \n",_event);
-		   // getchar();
+		   //getchar();
 		   hs_dtmore->Fill(x.TM()-s_tmsel);
 		   hs_dxmore->Fill(x.X()-s_xmsel);
 		   hs_t1t0150->Fill(x.t1()-x.t0());
@@ -1231,7 +1293,7 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 		 if (dist>15. && x.Y()>170)
 		 {
 		   printf("Xtalk issue %d \n",_event);
-		   // getchar();
+		   //getchar();
 		 
 		 }
 
@@ -1473,9 +1535,10 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 	      hpdyvsx->Fill(_pex.X(),x.Y()-_pex.Y());
 	      hpdxvsy->Fill(_pex.Y(),x.X()-_pex.X());
 	      hpdyvsy->Fill(_pex.Y(),x.Y()-_pex.Y());
-	      
-	      clusterFound|=abs(x.X()-_pex.X())<6&& abs(x.Y()+dy[int(x.X())]-_pex.Y())<9.5 ;
-	      if (abs(x.X()-_pex.X())<6&& abs(x.Y()+dy[int(x.X())]-_pex.Y())<9.5)
+	      clusterFound|=distmin<10.;
+	      //	      clusterFound|=abs(x.X()-_pex.X())<6&& abs(x.Y()+dy[int(x.X())]-_pex.Y())<9.5 ;
+	      // if (abs(x.X()-_pex.X())<6&& abs(x.Y()+dy[int(x.X())]-_pex.Y())<9.5)
+	      if (distmin<8)
 		{
 		  hposok->Fill(x.X(),x.Y());
 		  hmulc1->Fill(x.size()*1.);

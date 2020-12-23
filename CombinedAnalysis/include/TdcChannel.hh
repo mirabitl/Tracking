@@ -31,7 +31,15 @@ public:
   inline uint16_t side(jsonFebInfo& f) {return  f.tdc2side[channel()];}
   //  inline uint16_t strip(jsonFebInfo& f) {return  70+f.tdc2strip[channel()];}
   inline uint16_t strip(jsonFebInfo& f) {return  f.tdc2strip[channel()];}
-  inline double pedSubTime(jsonFebInfo& f) {return  tdcTime()-f.timeped[channel()];}
+  // Old style
+  // inline double pedSubTime(jsonFebInfo& f) {return  tdcTime()-f.timeped[channel()];}
+  inline double pedSubTime(jsonFebInfo& f) {
+    if (side(f)==0)
+      return  tdcTime()-f.st0[detectorStrip(f)];
+    else
+      return  tdcTime()-f.st1[detectorStrip(f)];
+
+  }
   inline uint16_t feb(){return _feb;}
 
 

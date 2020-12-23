@@ -84,7 +84,7 @@ void jsonGeo::fillFebs(uint32_t run)
 	  _jFebs[feb_id].stripShift=jfeb["stripShift"].asUInt();
 	  _jFebs[feb_id].polarity=jfeb["polarity"].asDouble();
       
-	  for (int i=0;i<49;i++)
+	  for (int i=0;i<MAXSTRIP;i++)
 	    {
 	      _jFebs[feb_id].tdc2strip[i]=jfeb["tdc2strip"][i].asUInt();
 	      std::cout<<" strip "<<i<<" "<< _jFebs[feb_id].tdc2strip[i]<<std::endl;
@@ -105,8 +105,18 @@ void jsonGeo::fillFebs(uint32_t run)
 	  _jFebs[feb_id].dt[0]=jfeb["dt0"].asDouble();
 	  _jFebs[feb_id].dt[1]=jfeb["dt1"].asDouble();
 
+	  memset(_jFebs[feb_id].timePedestal,0,MAXSTRIP*sizeof(float));
+	  memset(_jFebs[feb_id].st0,0,MAXSTRIP*sizeof(float));
+	  memset(_jFebs[feb_id].st1,0,MAXSTRIP*sizeof(float));
 	  for (int i=0;i<34;i++)
+	    {
 	    _jFebs[feb_id].timePedestal[i]=jfeb["delta"][i].asDouble();
+	    if (jfeb.isMember("st0"))
+	      {
+		_jFebs[feb_id].st0[i]=jfeb["st0"][i].asDouble();
+		_jFebs[feb_id].st1[i]=jfeb["st1"][i].asDouble();
+	      }
+	    }
 	}
     }
   // getchar();

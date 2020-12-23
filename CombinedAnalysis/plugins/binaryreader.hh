@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include "rbevent.hh"
+#include "TdcChannel.hh"
 #include "DCHistogramHandler.hh"
 
 #include "jsonGeo.hh"
@@ -47,9 +48,11 @@ class binaryreader : public rbProcessor
     void processCoincidence(rbEvent* e,uint32_t ibc);
     int TPrincipalComponents(double result[21],float zmin,float zmax);
     bool stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::string subdir);
+    void fillTimePedestal( std::vector<lydaq::TdcChannel*> c_strip []);
     void createTrees(std::string s);
     void closeTrees();
   private:
+    rbEvent* _erb;
     uint32_t _run,_event,_totalSize;
     int32_t _fdOut;
     bool _started,_dummy;
@@ -67,8 +70,8 @@ class binaryreader : public rbProcessor
 
     ROOT::Math::XYZPoint _pex;
     uint32_t _selfeb;
-struct FullEventTree _fevt;
-TTree* tEvents_;
+    struct FullEventTree _fevt;
+    TTree* tEvents_;
     TFile* treeFile_;
 
   };

@@ -1,0 +1,29 @@
+{
+    "1754":{"HVApplied":7400,"HVeff":0,"Threshold":600,
+	    "TMeteo":12.0,"TDome":289,"PMeteo":1016,"PDome":0},
+    "1759":{"HVApplied":7400,"HVeff":0,"Threshold":650,
+	    "TMeteo":12.2,"TDome":288,"PMeteo":1018,"PDome":0},
+    "1760":{"HVApplied":7400,"HVeff":0,"Threshold":550,
+	    "TMeteo":10.3,"TDome":286,"PMeteo":1019,"PDome":0},
+    "1761":{"HVApplied":7400,"HVeff":0,"Threshold":525,
+	    "TMeteo":5.8,"TDome":286,"PMeteo":1023,"PDome":0},
+    "1762":{"HVApplied":7200,"HVeff":0,"Threshold":525,
+	    "TMeteo":0,"TDome":287,"PMeteo":0,"PDome":1001},
+    "1763":{"HVApplied":7200,"HVeff":0,"Threshold":520,
+	    "TMeteo":0,"TDome":287,"PMeteo":0,"PDome":1001},
+    "1765":{"HVApplied":7200,"HVeff":0,"Threshold":515,
+	    "TMeteo":0,"TDome":287,"PMeteo":0,"PDome":1003},
+    "1766":{"HVApplied":7200,"HVeff":0,"Threshold":510,
+	    "TMeteo":0,"TDome":287,"PMeteo":0,"PDome":1005},
+    "1767":{"HVApplied":7100,"HVeff":0,"Threshold":510,
+	    "TMeteo":0,"TDome":287,"PMeteo":0,"PDome":1005},
+    "1768":{"HVApplied":7500,"HVeff":0,"Threshold":510,
+	    "TMeteo":0,"TDome":286,"PMeteo":0,"PDome":1004},
+    "1769":{"HVApplied":7500,"HVeff":0,"Threshold":515,
+	    "TMeteo":0,"TDome":286,"PMeteo":0,"PDome":1004},
+    "1770":{"HVApplied":7500,"HVeff":0,"Threshold":520,
+	    "TMeteo":0,"TDome":287,"PMeteo":0,"PDome":1004}
+    
+
+}
+
