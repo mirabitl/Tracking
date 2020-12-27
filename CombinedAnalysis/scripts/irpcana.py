@@ -21,11 +21,33 @@ class analyse:
         self.HVeff=0
         self.T0=0
         self.T=0
+        self.fC=0
         self.Threshold=0
         self.jsfile=jsfile
         f=open(jsfile)
         self.params=json.loads(f.read())
-        
+        fr=open("etc/runsum.json")
+        self.runparam=json.loads(fr.read())
+        for x,y in self.runparam.items():
+            if (int(x)==run):
+                self.HVapp=y["HVApplied"]
+                self.Threshold=y["Threshold"]
+                if (y["TDome"]==0):
+                    self.T0=y["TMeteo"]
+                    self.T=self.T0+273.15+3.0
+                else:
+                    self.T=y["TDome"]
+                if (y["PDome"]==0):
+                    self.P0=y["PMeteo"]
+                    self.P= self.calP(self.P0,170)
+                else:
+                    self.P=y["PDome"]
+                self.HVeff=self.calV(self.HVapp,self.P,self.T)
+                self.fC=(self.Threshold-480)*2.4
+                self.comment="R%d (%d/%d) VTH %d(%.1f fC)" % (self.run,self.HVapp,self.HVeff,self.Threshold,self.fC)
+
+                #print self.HVapp,self.HVeff,self.Threshold,self.fC,self.P,self.T
+                print self.comment
     def setConditions(self,hvapp,thr,p=0,t=0,p0=0,t0=0):
         self.HVapp=hvapp
         self.Threshold=thr
@@ -185,34 +207,34 @@ class analyse:
 
     def getratio(self,chamber=1,rebin=1,ncut=30):
         c=TCanvas("irpc","IRPC Studies",545,842)
-        c.Divide(2,4)
-        self.f0.cd("/FEB/Chamber%d/Raw" % chamber)
-        hst=self.f0.Get("/FEB/Chamber%d/Raw/Strips" % chamber)
-        c.cd(1)
-        hst.Draw()
-        hrat=TH1F("hrat","Ratio LR/HR ",50,0,50.)
-        for i in range(1,33):
-            x0=hst.GetBinContent(i+1)
-            x1=hst.GetBinContent(i+1+48)
-            r=0
-            if (x0>x1):
-                r=x1/x0
-            #print x0,x1,r
-            hrat.SetBinContent(i+1,r)
+        c.Divide(2,3)
+        #self.f0.cd("/FEB/Chamber%d/Raw" % chamber)
+        #hst=self.f0.Get("/FEB/Chamber%d/Raw/Strips" % chamber)
+        #c.cd(1)
+        #hst.Draw()
+        #hrat=TH1F("hrat","Ratio LR/HR ",50,0,50.)
+        #for i in range(1,33):
+        #    x0=hst.GetBinContent(i+1)
+        #    x1=hst.GetBinContent(i+1+48)
+        #    r=0
+        #    if (x0>x1):
+        #        r=x1/x0
+        #    #print x0,x1,r
+        #    hrat.SetBinContent(i+1,r)
 
 
-        c.cd(2)
-        hrat.Draw()
-        c.Modified()
-        c.Update()
+        #c.cd(2)
+        #hrat.Draw()
+        #c.Modified()
+        #c.Update()
         #val=raw_input()
         self.f0.cd("/gric")
         hxy=self.f0.Get("/gric/XY")
-        hxy.SetTitle(" 4 points Track extrapolation to the iRPC")
+        hxy.SetTitle(" 4 points Track extrapolation to the iRPC %s" % self.comment)
         hxyf=self.f0.Get("/gric/XYF")
         hxyf14=self.f0.Get("/gric/XYF14")
         hxyf15=self.f0.Get("/gric/XYF15")
-        hxyf.SetTitle(" 4 points Track extrapolation to the iRPC when cluster found nearby (5cm,20cm)")
+        hxyf.SetTitle(" 4 points Track extrapolation to the iRPC when cluster selected %s" % self.comment)
         hxyt=self.f0.Get("/gric/XYT")
         result=[]
         efft=hxyt.GetEntries()/hxy.GetEntries()
@@ -230,9 +252,9 @@ class analyse:
         result.append(hxyf15.GetEntries())
         result.append(effo15*100)
         #print hxy.GetEntries(),efft*100,effo*100,effo14*100,effo15*100
-        c.cd(3)
+        c.cd(1)
         hxy.Draw("COLZ")
-        c.cd(4)
+        c.cd(2)
         hxyf.Draw("COLZ")
         rbx=rebin
         rby=2
@@ -257,19 +279,19 @@ class analyse:
         chxyf15.SetAxisRange(20.,120.,"Y")
         chxyEff=chxyf.Clone("chxyEff")
         chxyEff.Divide(chxy)
-        chxyEff.SetTitle("Local Efficiency map")
+        chxyEff.SetTitle("Local Efficiency map %s " % self.comment)
         chxyEff14=chxyf14.Clone("chxyEff14")
         chxyEff14.Divide(chxy)
-        chxyEff14.SetTitle("Local Efficiency map FR4")
+        chxyEff14.SetTitle("Local Efficiency map FR4 %s " % self.comment)
         chxyEff15=chxyf15.Clone("chxyEff15")
         chxyEff15.Divide(chxy)
-        chxyEff15.SetTitle("Local Efficiency map EM888")
+        chxyEff15.SetTitle("Local Efficiency map EM888 %s " % self.comment)
         heff=TH1F("heff","Local Efficiency Ntk ext>15",110,0,1.1)
         dmin=max(0,effo*0.7)
         dmax=min(1.1,effo*1.6)
         nb=int((dmax-dmin)/0.005)
-        heff1=TH1F("heff1","Local Efficiency EM888",nb,dmin,dmax)
-        heff32=TH1F("heff32","Local Efficiency FR4",nb,dmin,dmax)
+        heff1=TH1F("heff1","Local Efficiency EM888 %s " % self.comment,nb,dmin,dmax)
+        heff32=TH1F("heff32","Local Efficiency FR4 %s " % self.comment,nb,dmin,dmax)
 
         for i in range(1,chxy.GetNbinsX()):
             for j in range(1,chxy.GetNbinsY()):
@@ -305,22 +327,22 @@ class analyse:
         y.tofile("result%d.csv" % self.run,sep='|',format='%7.1f')
         print y
   
-        c.cd(5)
+        c.cd(3)
         chxyEff15.Draw("COLZ")
         c.Modified()
         c.Update()
         #val=raw_input()
-        c.cd(6)
+        c.cd(4)
         chxyEff14.Draw("COLZ")
         c.Modified()
         c.Update()
         #val=raw_input()
-        c.cd(7)
+        c.cd(5)
         heff1.Draw()
         c.Modified()
         c.Update()
         #val=raw_input()
-        c.cd(8)
+        c.cd(6)
         heff32.Draw()
         c.Modified()
         c.Update()
