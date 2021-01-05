@@ -253,7 +253,7 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
 	}
     }
   // Ask at least 3 points
-  if (top_tk.size()>=3) {
+  if (top_tk.size()>=4) {
     top_tk.regression();
     top_tk.calculateChi2();
   }
@@ -484,258 +484,6 @@ void binaryreader::processEvent(rbEvent* e)
     }
 
   if (true) return;
-
-  
-  bool ramf=false;
-  for (int id=0;id<MAXDIF;id++)
-    {
-      ramf=ramf||(e->frameCount(id)>126);
-      if (e->frameCount(id))
-      printf("ID %d => Count %d \n",id,e->frameCount(id));
-      for (int j=0;j<e->frameCount(id);j++)
-	{
-	  uint32_t idx=e->iPtr(id,j);
-	
-	  if (e->bcid(idx)>maxt) maxt=e->bcid(idx);
-	}
-    }
-  bool coinc=true;
-  
-  bool trigger=false;
-  hftm->Fill(maxt*2E-7);
-  printf(" Max time %d \n", maxt);
-  if (maxt<100) return;
-  //if (rf) return;
-  bool rf=false;
-  for (int id=0;id<MAXDIF;id++)
-    if (e->frameCount(id))
-      {
-	uint16_t plane=(id>>4)&0xF;
-	hfc->Fill(id*1.,e->frameCount(id));
-	printf("PMR %x %d frames \n",id,e->frameCount(id));
-	std::stringstream sraw1;
-	sraw1<<"/pmr/ASIC"<<std::hex<<id<<std::dec<<"/";
-
-	TH1* hp1=_rh->GetTH1(sraw1.str()+"Pad1");
-	TH1* hftg=_rh->GetTH1(sraw1.str()+"FrameTime");
-	TH1* hfc=_rh->GetTH1(sraw1.str()+"FrameCount");
-	if (hp1==NULL)
-	  {
-	    hp1=_rh->BookTH1(sraw1.str()+"Pad1",64,0.,64.);
-	    hftg=_rh->BookTH1(sraw1.str()+"FrameTime",65536,0.,2.);
-	    hfc=_rh->BookTH1(sraw1.str()+"FrameCount",65,0.,65.);
-	  
-	  }
-
-	for (int j=0;j<e->frameCount(id);j++)
-	  {
-	    uint32_t idx=e->iPtr(id,j);
-	    int32_t dd=maxt-e->bcid(idx);
-
-	    if (e->bcid(idx)<50) continue;
-	    //if (e->frameCount(id)==127 && (dd<10)) continue;
-	    std::bitset<64> bs,bs0,bs1;bs.reset();bs1.reset();bs0.reset();
-	    for (int k=0;k<64;k++)
-	      {
-		if (e->pad0(idx,k)) bs0.set(k);
-		if (e->pad1(idx,k)) bs1.set(k);
-		  if (e->pad0(idx,k)||e->pad1(idx,k)) {bs.set(k);
-		    //if (dd<100)
-		    // hp1->Fill(k*1.);
-		  }
-		}
-	    hfc->Fill(bs.count()*1.);
-	    if (bs.count()>60) continue;
-	    for (int k=0;k<64;k++)
-	      {
-		if (e->pad0(idx,k)) bs0.set(k);
-		if (e->pad1(idx,k)) bs1.set(k);
-		  if (e->pad0(idx,k)||e->pad1(idx,k)) {bs.set(k);
-		    //if (dd<100)
-		     hp1->Fill(k*1.);}
-		}
-	    hft->Fill((maxt-e->bcid(idx))*2E-7);
-	    hftg->Fill((maxt-e->bcid(idx))*2E-7);
-	    bool found=false;
-	    std::map<uint32_t,std::vector<uint32_t> >::iterator itm=tm.find(e->bcid(idx));
-	    std::map<uint32_t,std::vector<uint32_t> >::iterator itmm=tm.find(e->bcid(idx)-1);
-	    std::map<uint32_t,std::vector<uint32_t> >::iterator itmp=tm.find(e->bcid(idx)+1);
-	    found =(itm!=tm.end())||(itmp!=tm.end())||(itmm!=tm.end());
-	    if (!found)
-	      {
-		std::vector<uint32_t> v;
-		v.push_back(idx);
-		std::pair<uint32_t,std::vector<uint32_t> > p(e->bcid(idx),v);
-		tm.insert(p);
-
-	      }
-	    else
-	      {
-		if (itm!=tm.end()) itm->second.push_back(idx);
-		if (itmm!=tm.end()) itmm->second.push_back(idx);
-		if (itmp!=tm.end()) itmp->second.push_back(idx);
-	      }
-
-	    rf=rf|(itm->second.size()>=3);
-	    /*	    
-	    printf("%x frame bcid %.9d %8.5f %s %d\n",id,e->bcid(idx),e->bcid(idx)*2E-7,bs.to_string().c_str(),bs.count());
-	    printf("%x frame bcid %.9d %8.5f %s %d\n",id,e->bcid(idx),e->bcid(idx)*2E-7,bs0.to_string().c_str(),bs0.count());
-	    printf("%x frame bcid %.9d %8.5f %s %d\n ----------\n",id,e->bcid(idx),e->bcid(idx)*2E-7,bs1.to_string().c_str(),bs1.count());
-	    */	    
-	    if (j>5)
-	      {
-		//printf("....\n");
-		//break;
-	      }
-	  }
-      }
-
-  if (ramf && trigger) return;
-  if (!ramf && coinc) return;
-  //std::cout<<"Selected-->"<<tm.size()<<std::endl;
-  //  getchar();
-  if (rf || true)
-    {
-      std::stringstream sres;
-      sres.clear();
-      std::bitset<16> planes;planes.reset();
-      int32_t nplanesmin=2;
-      if (trigger)  nplanesmin=0;
-      for (auto x:tm)
-	{
-	  if (x.second.size()<3) continue;
-	  int32_t dd=maxt-x.first;
-	  if (dd>20 and trigger) continue;
-	  if (dd<20 && coinc)  continue;
-	  sres.str("");
-	  sres<<"\t"<<x.first<<" : "<<x.second.size()<<" => "<<maxt<<" "<<dd<<std::hex;
-	  planes.reset();
-	  memset(u,0,16);
-	  memset(v,0,16);
-	  memset(w,0,16);
-	  for (auto y:x.second)
-	    {
-	      uint32_t ig=y/MAXFRAME/FSIZE;
-	      uint32_t plane=(ig>>4)&0xF;
-	      u[plane] = u[plane] || ( (ig&0xF)==2 || (ig&0xF)==4);
-	      v[plane] = v[plane] || ( (ig&0xF)==3 || (ig&0xF)==5);
-	      w[plane] = w[plane] || ( (ig&0xF)==6 || (ig&0xF)==7);
-	      planes.set(plane,1);
-	      sres<<" "<<ig<<"("<<plane<<")";
-	    }
-	  uint32_t nplanes=planes.count();
-	  sres<<std::dec<<" Plans "<<x.second.size()<<"->"<<nplanes<<": "<<planes<<std::endl;
-	  //if (nplanes==1) continue;
-
-	  
-	  if (nplanes>nplanesmin)
-	    {
-	  if (nplanes>nplanesmin)
-	    std::cout<<x.first<<"=>SELECTEDS "<<planes.count()<<" "<<dd<<" "<<x.first<<" " <<maxt<<"\t RESP "<<sres.str()<<std::endl;
-	  //getchar();
-	  for (auto y:x.second)
-	    {
-	      uint32_t ig=y/MAXFRAME/FSIZE;
-	      uint16_t plane=(ig>>4)&0xF;
-	      bool muv=u[plane]&&v[plane];
-	      bool muw=u[plane]&&w[plane];
-	      bool mvw=v[plane]&&w[plane];
-	      if (!(muv||muw||mvw)) continue;
-	      uint8_t cpos=(ig&0xF);
-	      bool udir= ( (ig&0xF)==2 || (ig&0xF)==4);
-	      bool vdir= ( (ig&0xF)==3 || (ig&0xF)==5);
-	      bool wdir= ( (ig&0xF)==6 || (ig&0xF)==7);
-	      int sshift=0;
-	      if (cpos==4 || cpos==5 || cpos==7) sshift=64;
-	      //if (!measure) continue;	      
-	      std::stringstream sraw1;
-	      std::stringstream splane;
-
-	      sraw1<<"/pmr/ASIC"<<std::hex<<ig<<std::dec<<"/";
-	      splane<<"/pmr/PLANE"<<plane<<"/";
-	      
-	      TH1* hp1=_rh->GetTH1(sraw1.str()+"Pad1Sel");
-	      TH1* hsu=_rh->GetTH1(splane.str()+"Ustrip");
-	      TH1* hsv=_rh->GetTH1(splane.str()+"Vstrip");
-	      TH1* hsw=_rh->GetTH1(splane.str()+"Wstrip");
-	      TH1* hfcs=_rh->GetTH1(sraw1.str()+"FrameCountSel");
-	      TH1* hftse=_rh->GetTH1(sraw1.str()+"FrameTimeSel");
-
-	      if (hp1==NULL)
-		{
-		  hp1=_rh->BookTH1(sraw1.str()+"Pad1Sel",64,0.,64.);
-		  hfcs=_rh->BookTH1(sraw1.str()+"FrameCountSel",65,0.,65.);
-		  hftse=_rh->BookTH1(sraw1.str()+"FrameTimeSel",500,0.,500.);
-		  hsu=_rh->BookTH1(splane.str()+"Ustrip",128,0.,128.);
-		  hsv=_rh->BookTH1(splane.str()+"Vstrip",128,0.,128.);
-		  hsw=_rh->BookTH1(splane.str()+"Wstrip",128,0.,128.);
-
-		}
-	      hftse->Fill(maxt-e->bcid(y)*1.);
-	      uint32_t idx=y;
-	      std::bitset<64> bs;bs.reset();
-	      for (int k=0;k<64;k++)
-		if (e->pad0(idx,k)||e->pad1(idx,k)) {
-		  bs.set(k);hp1->Fill(k*1.);
-		  if (udir) hsu->Fill(k+sshift*1.);
-		  if (vdir) hsv->Fill(k+sshift*1.);
-		  if (wdir) hsw->Fill(k+sshift*1.);
-		}
-	      hfcs->Fill(bs.count()*1.);
-	      //fprintf(stderr,"%x frame bcid %.9d %8.5f %s %d\n",ig,e->bcid(idx),e->bcid(idx)*2E-7,bs.to_string().c_str(),bs.count());
-	      // getchar();
-	    }
-    
-	}
-	}
-    }
-  
-  return;
-  // Selected
-  bool sel=false;
-  for (int id=0;id<MAXDIF;id++)
-    if (e->frameCount(id))
-      {
-	std::stringstream sraw1;
-	sraw1<<"/pmr/ASIC"<<std::hex<<id<<std::dec<<"/";
-	
-	TH1* hp1=_rh->GetTH1(sraw1.str()+"Pad1Sel");
-	if (hp1==NULL)
-	  {
-	    hp1=_rh->BookTH1(sraw1.str()+"Pad1Sel",64,0.,64.);
-	  }
-	for (int j=0;j<e->frameCount(id);j++)
-	  {
-	    uint32_t idx=e->iPtr(id,j);
-
-
-	    auto itm=tm.find(e->bcid(idx));
-	    if (itm==tm.end())
-	      {
-		std::cout<<"OOOPS"<<std::endl;
-		continue;
-	      }
-	    if (itm->second.size()<3) continue;
-	    int32_t dd=maxt-itm->first;
-	    //if (dd>20) continue;
-	    std::bitset<64> bs;bs.reset();
-	    for (int k=0;k<64;k++)
-	      if (e->pad0(idx,k)||e->pad1(idx,k)) {bs.set(k);hp1->Fill(k*1.);}
-	    if (bs.count()>50) continue;
-	    sel=true;
-	    //if (maxt-itm->first>50) continue;
-	    //if (maxt-itm->first>5000) continue;
-	    hfts->Fill((maxt-e->bcid(idx))*1.);
-	 
-	    //if (bs.count()>20) continue;
-	    //printf("%x frame bcid %d %f %s %d\n",id,e->bcid(idx),e->bcid(idx)*2E-7,bs.to_string().c_str(),bs.count());
-	    //Xgetchar();
-	  }
-      }
-  //if (sel) getchar();
-  
-  
-  //getchar();
 }
 int32_t binaryreader::TPrincipalComponents(double result[21],float zmin,float zmax)
 {
@@ -1213,8 +961,8 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 	  hs_dxdy20=_rh->BookTH2(s_src.str()+"DXDY20",100,-10.,10.,600,-20.,220.);
 	  hs_dxdy50=_rh->BookTH2(s_src.str()+"DXDY50",100,-10.,10.,600,-20.,220.);
 	  
-	  hs_dxvsx=_rh->BookTH2(s_src.str()+"dxvsx",48,0.,48.,100,-10.,10.);
-	  hs_dyvsx=_rh->BookTH2(s_src.str()+"dyvsx",48,0.,48.,100,-20.,20.);
+	  hs_dxvsx=_rh->BookTH2(s_src.str()+"dxvsx",64,-32.,32.,100,-10.,10.);
+	  hs_dyvsx=_rh->BookTH2(s_src.str()+"dyvsx",64,-32.,32.,100,-20.,20.);
 	  hs_dxvsy=_rh->BookTH2(s_src.str()+"dxvsy",105,-60.,250.,100,-10.,10.);
 	  hs_dyvsy=_rh->BookTH2(s_src.str()+"dyvsy",105,-60.,250.,100,-20.,20.);
 	  hs_abst=_rh->BookTH1(s_src.str()+"TOA",100,-570.,-600.);
@@ -1265,8 +1013,8 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 	      //hposcma->Fill(x.X(),x.Y());
 		  hs_xysel->Fill(x.X(),x.Y());
 
-		  hs_dxvsx->Fill(_pex.X(),x.X()-_pex.X());
-		  hs_dyvsx->Fill(_pex.X(),x.Y()-_pex.Y());
+		  hs_dxvsx->Fill(_pex.X()-16,x.X()-_pex.X());
+		  hs_dyvsx->Fill(_pex.X()-16,x.Y()-_pex.Y());
 		  hs_dxvsy->Fill(_pex.Y(),x.X()-_pex.X());
 		  hs_dyvsy->Fill(_pex.Y(),x.Y()-_pex.Y());
 

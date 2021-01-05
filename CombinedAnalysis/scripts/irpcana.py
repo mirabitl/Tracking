@@ -47,7 +47,7 @@ class analyse:
                 self.comment="R%d (%d/%d) VTH %d(%.1f fC)" % (self.run,self.HVapp,self.HVeff,self.Threshold,self.fC)
 
                 #print self.HVapp,self.HVeff,self.Threshold,self.fC,self.P,self.T
-                print self.comment
+                #print self.comment
     def setConditions(self,hvapp,thr,p=0,t=0,p0=0,t0=0):
         self.HVapp=hvapp
         self.Threshold=thr
@@ -120,12 +120,12 @@ class analyse:
         str_res='"st0":[0.'
         for i in range(2,48):
             str_res=str_res+",%.2f" % T0[i]
-            ST0.append(T0[i])
+            ST0.append(round(T0[i],2))
         str_res=str_res+"],\n"
         str_res+='"st1":[0.'
         for i in range(2,48):
             str_res=str_res+",%.2f" % T1[i]
-            ST1.append(T1[i])
+            ST1.append(round(T1[i],2))
         str_res=str_res+"],\n"
         
         print str_res
@@ -160,7 +160,7 @@ class analyse:
             if (hst.GetEntries()<100):
                 hst.Rebin(2)
                 
-            hst.SetTitle("Y_{ext} - Y_{strip} Strip %d" % ist)
+            hst.SetTitle("Y_{ext} - Y_{strip} Strip %d %s" % (ist,self.comment))
             hst.GetXaxis().SetTitle("#Delta Y (cm)")
             hst.GetYaxis().SetTitle("Number of event")
             xm=-100000.
@@ -175,13 +175,14 @@ class analyse:
             dtmean=scfit.GetParameter(1)
             dtres=scfit.GetParameter(2)
             print ist,hst.GetEntries(),hst.GetMean(),xm,dtmean,dtres
-            res[ist]=dtmean
-            dres[ist]=dtres
+            res[ist]=round(dtmean,2)
+            dres[ist]=round(dtres,3)
             c.cd()
             hst.Draw()
             c.Modified()
             c.Update()
             c.SaveAs("IRPC%d_dy_%s%d.png" % (self.run,hn,ist))
+            
             
         val=raw_input()
         str_res='"delta":[0.'
@@ -228,6 +229,11 @@ class analyse:
         #c.Modified()
         #c.Update()
         #val=raw_input()
+        noiseeff=0
+        if (self.f1!=None):
+             self.f1.cd("/gric")
+             hxyn=self.f1.Get("/gric/XYT")
+             noiseff=hxyn.GetEntries()
         self.f0.cd("/gric")
         hxy=self.f0.Get("/gric/XY")
         hxy.SetTitle(" 4 points Track extrapolation to the iRPC %s" % self.comment)
@@ -238,19 +244,27 @@ class analyse:
         hxyt=self.f0.Get("/gric/XYT")
         result=[]
         efft=hxyt.GetEntries()/hxy.GetEntries()
-        result.append(self.run)
-        result.append(hxy.GetEntries())
-        result.append(hxyt.GetEntries())
-        result.append(efft*100)
+        effn=noiseff/hxy.GetEntries()/2E-5/3300./efft
+        result.append(int(self.run))
+        result.append(int(self.Threshold))
+        result.append(round(self.fC,1))
+        result.append(round(self.HVapp,2))
+        result.append(round(self.P,1))
+        result.append(round(self.T,1))
+        result.append(round(self.HVeff,2))
+        result.append(int(hxy.GetEntries()))
+        result.append(int(hxyt.GetEntries()))
+        result.append(round(efft*100,2))
+        result.append(round(effn,2))
         effo=hxyf.GetEntries()/hxy.GetEntries()
         effo14=hxyf14.GetEntries()/hxy.GetEntries()
         effo15=hxyf15.GetEntries()/hxy.GetEntries()
-        result.append(hxyf.GetEntries())
-        result.append(effo*100)
-        result.append(hxyf14.GetEntries())
-        result.append(effo14*100)
-        result.append(hxyf15.GetEntries())
-        result.append(effo15*100)
+        result.append(int(hxyf.GetEntries()))
+        result.append(round(effo*100,2))
+        result.append(int(hxyf14.GetEntries()))
+        result.append(round(effo14*100,2))
+        result.append(int(hxyf15.GetEntries()))
+        result.append(round(effo15*100,2))
         #print hxy.GetEntries(),efft*100,effo*100,effo14*100,effo15*100
         c.cd(1)
         hxy.Draw("COLZ")
@@ -307,26 +321,22 @@ class analyse:
                     # A partir du 1722 (14 et 15 inverted)
                     if (xp>=8 and xp<=15 and yp<84 and yp>41):
                         heff1.Fill(chxyEff15.GetBinContent(i,j))
-                        print chxy.GetBinContent(i,j), chxyf15.GetBinContent(i,j),chxyEff15.GetBinContent(i,j)
+                        #print chxy.GetBinContent(i,j), chxyf15.GetBinContent(i,j),chxyEff15.GetBinContent(i,j)
                     if (xp>=17 and xp<=26 and yp<84 and yp>41):
                         heff32.Fill(chxyEff14.GetBinContent(i,j))
 
-        print heff1.GetMean()*100,heff32.GetMean()*100
+        #print heff1.GetMean()*100,heff32.GetMean()*100
 
         deff1=(heff1.GetRMS()/math.sqrt(heff1.GetEntries()))*100
         deff32=(heff32.GetRMS()/math.sqrt(heff32.GetEntries()))*100
-        result.append(heff1.GetEntries())
-        result.append(heff1.GetMean()*100)
-        result.append(deff1)
-        result.append(heff32.GetEntries())
-        result.append(heff32.GetMean()*100)
-        result.append(deff32)
-        y=np.array(result)
-        #np.set_printoptions(precision=1)
-        np.set_printoptions(formatter={'float': '{: 0.1f}'.format})
-        y.tofile("result%d.csv" % self.run,sep='|',format='%7.1f')
-        print y
-  
+        result.append(int(heff1.GetEntries()))
+        result.append(round(heff1.GetMean()*100,2))
+        result.append(round(deff1,2))
+        result.append(int(heff32.GetEntries()))
+        result.append(round(heff32.GetMean()*100,2))
+        result.append(round(deff32,2))
+        print result
+       
         c.cd(3)
         chxyEff15.Draw("COLZ")
         c.Modified()
@@ -347,8 +357,8 @@ class analyse:
         c.Modified()
         c.Update()
         #
-        c.SaveAs("Analyse%d.pdf" % self.run)
-        val=raw_input()
+        #c.SaveAs("Analyse%d.pdf" % self.run)
+        #val=raw_input()
 
     def pltres(self):
         c=TCanvas("c","IRPC studies %d" % self.run ,545,345);
