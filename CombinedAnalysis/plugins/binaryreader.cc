@@ -75,6 +75,7 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
   TH2* hxy=_rh->GetTH2("/gric/XY");
   TH2* hxyt=_rh->GetTH2("/gric/XYT");
   TH2* hxyf=_rh->GetTH2("/gric/XYF");
+  TH2* hxym=_rh->GetTH2("/gric/XYM");
   TH2* hxyf14=_rh->GetTH2("/gric/XYF14");
   TH2* hxyf15=_rh->GetTH2("/gric/XYF15");
   TH1* hcount=_rh->GetTH1("/gric/Count");
@@ -98,6 +99,7 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
       hxy=_rh->BookTH2("/gric/XY",100,0.,50.,100.,0.,100.);
       hxyt=_rh->BookTH2("/gric/XYT",100,0.,50.,100.,0.,100.);
       hxyf=_rh->BookTH2("/gric/XYF",100,0.,50.,100.,0.,100.);
+      hxym=_rh->BookTH2("/gric/XYM",100,0.,50.,100.,0.,100.);
       hxyf14=_rh->BookTH2("/gric/XYF14",100,0.,50.,100.,0.,100.);
       hxyf15=_rh->BookTH2("/gric/XYF15",100,0.,50.,100.,0.,100.);
 	    }
@@ -336,7 +338,7 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
       double ddt=(coarsedif-(x.tdcTime()/2.5))*2.5/200.;
       //ddt=ddt*2.5/200.;
        bool timeselected =
-	 ((_geoRoot["general"]["noise"].asUInt()==0)&&(ddt<-3 && ddt>-8))||
+	 ((_geoRoot["general"]["noise"].asUInt()==0)&&(ddt<=-4 && ddt>=-6))||
 	 ((_geoRoot["general"]["noise"].asUInt()==1)&&(ddt<-13 && ddt>-113));
 	 
       // Noise if (ddt<-53 && ddt>-153)
@@ -376,6 +378,8 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
       if (_selfeb==15)
 	hxyf15->Fill(_pex.X(),_pex.Y());
     }
+  else
+    hxym->Fill(_pex.X(),_pex.Y());
   if (tEvents_!=NULL)
     {
       treeFile_->cd();
@@ -667,7 +671,8 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
     {
       // Drop Trigger Channel
       if (x->channel()==1) continue;
-      if (x->pedSubTime(_geo->feb(x->feb()))>(40+mttime)) continue;
+      // Supress signal > 40 of first hit found //
+      if (x->pedSubTime(_geo->feb(x->feb()))>(30+mttime)) continue;
       std::stringstream sraw;
       sraw<<"/"<<subdir<<"/Chamber"<<chamber<<"/Raw/";
       TH1* hchan=_rh->GetTH1(sraw.str()+"Channels");
