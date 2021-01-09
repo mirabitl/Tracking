@@ -334,7 +334,7 @@ class analyse:
                     #if (xp>=19):
                     #    heff32.Fill(chxyEff15.GetBinContent(i,j))
                     # A partir du 1722 (14 et 15 inverted)
-                    if (xp>=8 and xp<=15 and yp<84 and yp>41):
+                    if (xp>=5 and xp<=15 and yp<84 and yp>41):
                         heff1.Fill(chxyEff15.GetBinContent(i,j))
                         #print chxy.GetBinContent(i,j), chxyf15.GetBinContent(i,j),chxyEff15.GetBinContent(i,j)
                     if (xp>=17 and xp<=26 and yp<84 and yp>41):
