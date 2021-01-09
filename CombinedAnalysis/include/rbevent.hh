@@ -58,6 +58,7 @@ namespace Lmana
 
       yloc=yloc/cos(abs(_str-16)/96.*3.1415926535897932384626433/9);
 
+      yloc = yloc -2.18658 -(10.487-0.159423*yloc);
       return yloc;
 	//cos(abs(_str-16)*20./96*3.14159265359/180.)*yloc;
       //return _shift + 160. - (_t1 - _t0) * 18.39 / 2.0;

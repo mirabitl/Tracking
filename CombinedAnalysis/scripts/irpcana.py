@@ -14,7 +14,11 @@ class analyse:
         self.run = run
         self.direc = direc
         self.f0 = TFile(direc+"/histo%d_0.root" % run)
-        self.f1 = TFile(direc+"/Noisehisto%d_0.root" % run)
+        try:
+            self.f1 = TFile(direc+"/Noisehisto%d_0.root" % run)
+        except:
+            self.f1=None
+        self.f1=None
         self.P=0
         self.P0=0
         self.HVapp=0
@@ -98,8 +102,19 @@ class analyse:
             hst1=self.f0.Get("/Align/Pedestal%dLR" % (ist))
     
             if (hst0!=None):
+                c.cd()
+                hst0.Draw()
+                c.Modified()
+                c.Update()
+                val=raw_input()
+
                 dT0[ist]=hst0.GetMean()
             if (hst1!=None):
+                c.cd()
+                hst1.Draw()
+                c.Modified()
+                c.Update()
+                val=raw_input()
                 dT1[ist]=hst1.GetMean()
         print dT0
         print dT1
@@ -157,7 +172,7 @@ class analyse:
             if (hst==None):
                 continue
             
-            if (hst.GetEntries()<100):
+            if (hst.GetEntries()<400):
                 hst.Rebin(2)
                 
             hst.SetTitle("Y_{ext} - Y_{strip} Strip %d %s" % (ist,self.comment))
@@ -229,7 +244,7 @@ class analyse:
         #c.Modified()
         #c.Update()
         #val=raw_input()
-        noiseeff=0
+        noiseff=0
         if (self.f1!=None):
              self.f1.cd("/gric")
              hxyn=self.f1.Get("/gric/XYT")
@@ -357,8 +372,8 @@ class analyse:
         c.Modified()
         c.Update()
         #
-        #c.SaveAs("Analyse%d.pdf" % self.run)
-        #val=raw_input()
+        c.SaveAs("Analyse%d.pdf" % self.run)
+        val=raw_input()
 
     def pltres(self):
         c=TCanvas("c","IRPC studies %d" % self.run ,545,345);

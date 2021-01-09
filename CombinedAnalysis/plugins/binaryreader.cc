@@ -91,7 +91,7 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
       htkax=_rh->BookTH1("/gric/tkax",300,-2.,2.);
       htkay=_rh->BookTH1("/gric/tkay",300,-2.,2.);
       hcount=_rh->BookTH1("/gric/Count",30,0.1,30.1);
-      hdt=_rh->BookTH1("/gric/dt",500,-250.,250.);
+      hdt=_rh->BookTH1("/gric/dt",2500,-250.,250.);
       hch=_rh->BookTH1("/gric/tdcchannel",70,0.,70.);
       hinti=_rh->BookTH1("/gric/InTime",70,-0.1,69.9);
       hzx=_rh->BookTH2("/gric/ZX",400,0.,200.,100.,0.,100.);
@@ -255,7 +255,7 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
 	}
     }
   // Ask at least 3 points
-  if (top_tk.size()>=4) {
+  if (top_tk.size()>=3) {
     top_tk.regression();
     top_tk.calculateChi2();
   }
@@ -266,9 +266,13 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
   htkax->Fill(top_tk.dir().X());
   htkay->Fill(top_tk.dir().Y());
   if (top_tk.pchi2()<0.4) return;
-  if (abs(top_tk.dir().X())>0.4) return;
-  if (abs(top_tk.dir().Y())>0.4) return;
-  //if (top_tk.plans()!=30) return;
+  ROOT::Math::XYZPoint p=top_tk.extrapolate(82);
+  _pex.SetXYZ(33-p.Y(),88-p.X(),p.Z()); //was 50-p.X() (100-12 connecteur strip)
+
+  if (_pex.X()<3 ||_pex.X()>27) return;
+  if (abs(top_tk.dir().X())>0.7) return;
+  if (abs(top_tk.dir().Y())>0.7) return;
+  if (top_tk.plans()&22!=22) return;
   hcount->Fill(20.);
   uint32_t cnt[20];
   memset(cnt,0,20*sizeof(uint32_t));
@@ -317,8 +321,6 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
     _fevt.tk_v[2]=top_tk.dir().Z();
     _fevt.tk_pchi2=top_tk.pchi2();
     _fevt.tk_plans=top_tk.plans();
-  ROOT::Math::XYZPoint p=top_tk.extrapolate(82);
-  _pex.SetXYZ(33-p.Y(),88-p.X(),p.Z()); //was 50-p.X() (100-12 connecteur strip)
 
   _fevt.pex_x[0]=_pex.X();
   _fevt.pex_x[1]=_pex.Y();
@@ -337,8 +339,9 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
 	coarsedif -=((1<<24)-1);
       double ddt=(coarsedif-(x.tdcTime()/2.5))*2.5/200.;
       //ddt=ddt*2.5/200.;
+      /// Moyenne -5.48
        bool timeselected =
-	 ((_geoRoot["general"]["noise"].asUInt()==0)&&(ddt<=-4 && ddt>=-6))||
+	 ((_geoRoot["general"]["noise"].asUInt()==0)&&(ddt<=-4.14 && ddt>=-6.82))||
 	 ((_geoRoot["general"]["noise"].asUInt()==1)&&(ddt<-13 && ddt>-113));
 	 
       // Noise if (ddt<-53 && ddt>-153)
@@ -671,17 +674,38 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
     {
       // Drop Trigger Channel
       if (x->channel()==1) continue;
-      // Supress signal > 40 of first hit found //
-      if (x->pedSubTime(_geo->feb(x->feb()))>(30+mttime)) continue;
+      // Supress signal side 0  > 15  ns of first hit found //
+      // Supress signal side 1  > 40  ns of first hit found //
+      if (x->side(_geo->feb(x->feb()))==0 && x->pedSubTime(_geo->feb(x->feb()))>(15+mttime)) continue;
+      if (x->side(_geo->feb(x->feb()))==1 && x->pedSubTime(_geo->feb(x->feb()))>(40+mttime)) continue;
       std::stringstream sraw;
       sraw<<"/"<<subdir<<"/Chamber"<<chamber<<"/Raw/";
       TH1* hchan=_rh->GetTH1(sraw.str()+"Channels");
       TH1* hstrips=_rh->GetTH1(sraw.str()+"Strips");
+      TH1* hdelay=_rh->GetTH1(sraw.str()+"delay");
       if (hchan==NULL)
 	{
 	  hchan=_rh->BookTH1(sraw.str()+"Channels",48*16,0.,48.*16);
 	  hstrips=_rh->BookTH1(sraw.str()+"Strips",96,0,96);
+	  hdelay=_rh->BookTH1(sraw.str()+"delay",500,-0.1,200.);
 	}
+      hdelay->Fill(x->pedSubTime(_geo->feb(x->feb()))-mttime);
+
+      std::stringstream srcd;
+      srcd<<sraw.str()<<"del"<<(int) (x->channel()+100*(x->feb()-14));
+		  //std:cout<<srcs.str()<<std::endl;
+      TH1* hdelc=_rh->GetTH1(srcd.str());
+      if (hdelc==NULL)
+	hdelc=_rh->BookTH1(srcd.str(),500,-0.1,200.);
+      hdelc->Fill(x->pedSubTime(_geo->feb(x->feb()))-mttime);
+      srcd.str(std::string());
+      srcd<<sraw.str()<<"S"<<(int)x->side(_geo->feb(x->feb()))<<"del"<<(int) x->detectorStrip(_geo->feb(x->feb()));
+		  //std:cout<<srcs.str()<<std::endl;
+      TH1* hdels=_rh->GetTH1(srcd.str());
+      if (hdels==NULL)
+	hdels=_rh->BookTH1(srcd.str(),500,-0.1,100.);
+      hdels->Fill(x->pedSubTime(_geo->feb(x->feb()))-mttime);
+      
       hchan->Fill(x->feb()*48+x->channel());
       hstrips->Fill( x->side(_geo->feb(x->feb()))*48+x->detectorStrip(_geo->feb(x->feb())));
 	    
@@ -702,7 +726,11 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 	  
       nch++;
     }
-  if (nch>24) return false;
+  // if (nch>24)
+  //   {
+  //     getchar();
+  //     return false;
+  //   }
   this->fillTimePedestal(c_strip);
   //if (nch) getchar();
   std::stringstream srcc;
@@ -899,7 +927,7 @@ bool binaryreader::stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::stri
 		    }
 		
 		  if (ts.ypos()<-100 || ts.ypos()>350.) continue;
-		  if ((t1-t0)<12.) continue;
+		  //if ((t1-t0)<12.) continue;
 		  x->setUsed(true);
 		  y->setUsed(true);
 		   _strips.push_back(ts);
