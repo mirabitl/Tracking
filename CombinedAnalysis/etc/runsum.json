@@ -70,6 +70,16 @@
     "1799":{"HVApplied":7100,"HVeff":0,"Threshold":525,
 	    "TMeteo":0,"TDome":280,"PMeteo":0,"PDome":996.6},
     "1800":{"HVApplied":7000,"HVeff":0,"Threshold":525,
-	    "TMeteo":0,"TDome":280,"PMeteo":0,"PDome":996.6}
+	    "TMeteo":0,"TDome":280,"PMeteo":0,"PDome":996.6},
+    "1801":{"HVApplied":7700,"HVeff":0,"Threshold":550,
+	    "TMeteo":0,"TDome":278,"PMeteo":0,"PDome":997.2},
+    "1802":{"HVApplied":7700,"HVeff":0,"Threshold":560,
+	    "TMeteo":0,"TDome":279,"PMeteo":0,"PDome":998.5},
+    "1803":{"HVApplied":7700,"HVeff":0,"Threshold":540,
+	    "TMeteo":0,"TDome":279,"PMeteo":0,"PDome":998.3},
+    "1804":{"HVApplied":7700,"HVeff":0,"Threshold":530,
+	    "TMeteo":0,"TDome":280,"PMeteo":0,"PDome":998.2},
+    "1805":{"HVApplied":7700,"HVeff":0,"Threshold":570,
+	    "TMeteo":0,"TDome":280,"PMeteo":0,"PDome":998.8}
 }
 
