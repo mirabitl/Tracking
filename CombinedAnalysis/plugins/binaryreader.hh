@@ -48,6 +48,7 @@ class binaryreader : public rbProcessor
     void processCoincidence(rbEvent* e,uint32_t ibc);
     int TPrincipalComponents(double result[21],float zmin,float zmax);
     bool stripStudy(std::vector<lydaq::TdcChannel>& vChannel,std::string subdir);
+    bool Clustering1D(std::vector<lydaq::TdcChannel>& vChannel,std::string subdir);
     void fillTimePedestal( std::vector<lydaq::TdcChannel*> c_strip []);
     void createTrees(std::string s);
     void closeTrees();

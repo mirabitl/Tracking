@@ -372,6 +372,7 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
   _run=e->run();
 
   bool cfound=this->stripStudy(vChannel,"FEB");
+  this->Clustering1D(vChannel,"FEB");
   if (cfound)
     {
       _fevt.found_feb=_selfeb;
@@ -1423,7 +1424,45 @@ void binaryreader::closeTrees()
     }
 }
 
+bool binaryreader::Clustering1D(std::vector<lydaq::TdcChannel>& vChannel,std::string subdir)
+{
+  // Construct cluster HR & LR
+  std::bitset<48> bhr;
+  std::bitset<48> blr;
+  double mttime=1E12;
+   for (auto x=vChannel.begin();x!=vChannel.end();x++)
+    {
+      if (x->channel()==1) continue;
+      if (x->pedSubTime(_geo->feb(x->feb()))< mttime)
+	mttime= x->pedSubTime(_geo->feb(x->feb()));
+    }
+  for (auto x=vChannel.begin();x!=vChannel.end();x++)
+    {
+      // Drop Trigger Channel
+      if (x->channel()==1) continue;
+      // Supress signal side 0  > 15  ns of first hit found //
+      // Supress signal side 1  > 40  ns of first hit found //
+      if (x->side(_geo->feb(x->feb()))==0 && x->pedSubTime(_geo->feb(x->feb()))>(15+mttime)) continue;
+      if (x->side(_geo->feb(x->feb()))==1 && x->pedSubTime(_geo->feb(x->feb()))>(40+mttime)) continue;
+      if (x->side(_geo->feb(x->feb()))==0)
+	bhr.set(x->detectorStrip(_geo->feb(x->feb())),1);
+      else
+	blr.set(x->detectorStrip(_geo->feb(x->feb())),1);
+    }
+  std::stringstream sraw;
+  sraw<<"/"<<subdir<<"/Clustering1D/";
+  TH1* hnhr=_rh->GetTH1(sraw.str()+"HRCount");
+  TH1* hnlr=_rh->GetTH1(sraw.str()+"LRCount");
+  if (hnhr==NULL)
+    {
+      hnhr=_rh->BookTH1(sraw.str()+"HRCount",50,-0.1,49.9);
+      hnlr=_rh->BookTH1(sraw.str()+"LRCount",50,-0.1,49.9);
+    }
+  hnhr->Fill(bhr.count()*1.);
+  hnlr->Fill(blr.count()*1.);
+  return true;
 
+}
 extern "C" 
 {
   // loadDHCALAnalyzer function creates new LowPassDHCALAnalyzer object and returns it.  
