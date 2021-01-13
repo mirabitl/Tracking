@@ -39,10 +39,18 @@ int main(int argc, char **argv )
   int32_t runask=0,nmax=5000000;
   bool noise=false;
   char c;
-   while ( (c = getopt(argc, argv, "g:r:d:m:p:hv")) != -1 ) {
+   while ( (c = getopt(argc, argv, "g:r:d:m:p:hvN")) != -1 ) {
      fprintf(stderr,"%c read\n",c);
      
         switch ( c ) {
+	case 'N':
+                /* On stocke le pointeur vers l'argument
+                 * (car sa valeur pourrait être écrasée
+                 * au prochain tour de boucle). */
+	      fprintf(stderr, "Noise run \n");
+	      noise=true;
+                break;
+
             case 'g':
                 /* Chaque fois que l'option -v est utilisée,
                  * on augmente le degré de verbosité. */
@@ -93,13 +101,6 @@ int main(int argc, char **argv )
                  * au prochain tour de boucle). */
 	      fprintf(stderr, "On serait verbose Usage: tdcr [options] \n");
                 break;
-            case 'n':
-                /* On stocke le pointeur vers l'argument
-                 * (car sa valeur pourrait être écrasée
-                 * au prochain tour de boucle). */
-	      fprintf(stderr, "Noise run \n");
-	      noise=true;
-                break;
 	case 'm':
                 /* Ici, on convertit la valeur de optarg
                  * en entier. Il conviendrait de gérer les
@@ -129,8 +130,10 @@ int main(int argc, char **argv )
    //bs.geometry("gifpp_geom.json");
    if (prn.compare("NONE")!=0)
      bs.registerProcessor(prn);
-   std::cout<<geom_file<<" " <<runask<<std::endl;
+   std::cout<<geom_file<<" " <<runask<<" bool "<<(int) noise<<std::endl;
    bs.geometry(geom_file);
+   bs.setNoise(noise);
+   //getchar();
    //getchar();
   std::stringstream spat;
   //int runask=atol(argv[1]);

@@ -53,6 +53,7 @@ void binaryreader::processRunHeader(std::vector<uint32_t> header)
 static TCanvas* TCHits=NULL;
 void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
 {
+  
   memset(&_fevt,0,sizeof(struct FullEventTree));
   _fevt.bc=ibc;
   _fevt.run=e->run();
@@ -74,8 +75,12 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
   TH2* hzy=_rh->GetTH2("/gric/ZY");
   TH2* hxy=_rh->GetTH2("/gric/XY");
   TH2* hxyt=_rh->GetTH2("/gric/XYT");
-  TH2* hxyf=_rh->GetTH2("/gric/XYF");
+
   TH2* hxym=_rh->GetTH2("/gric/XYM");
+  TH2* hxya=_rh->GetTH2("/gric/XYA");
+  TH2* hxya14=_rh->GetTH2("/gric/XYA14");
+  TH2* hxya15=_rh->GetTH2("/gric/XYA15");
+  TH2* hxyf=_rh->GetTH2("/gric/XYF");
   TH2* hxyf14=_rh->GetTH2("/gric/XYF14");
   TH2* hxyf15=_rh->GetTH2("/gric/XYF15");
   TH1* hcount=_rh->GetTH1("/gric/Count");
@@ -98,10 +103,14 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
       hzy=_rh->BookTH2("/gric/ZY",400,0.,200.,80.,0.,80.);
       hxy=_rh->BookTH2("/gric/XY",100,0.,50.,100.,0.,100.);
       hxyt=_rh->BookTH2("/gric/XYT",100,0.,50.,100.,0.,100.);
-      hxyf=_rh->BookTH2("/gric/XYF",100,0.,50.,100.,0.,100.);
+
       hxym=_rh->BookTH2("/gric/XYM",100,0.,50.,100.,0.,100.);
+      hxyf=_rh->BookTH2("/gric/XYF",100,0.,50.,100.,0.,100.);
       hxyf14=_rh->BookTH2("/gric/XYF14",100,0.,50.,100.,0.,100.);
       hxyf15=_rh->BookTH2("/gric/XYF15",100,0.,50.,100.,0.,100.);
+      hxya=_rh->BookTH2("/gric/XYA",100,0.,50.,100.,0.,100.);
+      hxya14=_rh->BookTH2("/gric/XYA14",100,0.,50.,100.,0.,100.);
+      hxya15=_rh->BookTH2("/gric/XYA15",100,0.,50.,100.,0.,100.);
 	    }
   hzx->Reset();
   hzy->Reset();
@@ -371,8 +380,9 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
   }
   _run=e->run();
 
+  _selfeb=0;
   bool cfound=this->stripStudy(vChannel,"FEB");
-  this->Clustering1D(vChannel,"FEB");
+  
   if (cfound)
     {
       _fevt.found_feb=_selfeb;
@@ -383,7 +393,18 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
 	hxyf15->Fill(_pex.X(),_pex.Y());
     }
   else
+    {
     hxym->Fill(_pex.X(),_pex.Y());
+    this->Clustering1D(vChannel,"FEB");
+    }
+  if (_selfeb!=0)
+    {
+      hxya->Fill(_pex.X(),_pex.Y());
+      if (_selfeb==14)
+	hxya14->Fill(_pex.X(),_pex.Y());
+      if (_selfeb==15)
+	hxya15->Fill(_pex.X(),_pex.Y());
+    }
   if (tEvents_!=NULL)
     {
       treeFile_->cd();
@@ -423,6 +444,7 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
 }
 void binaryreader::processEvent(rbEvent* e)
 {
+  
   _erb=e;
   if (_event==0)
     {
@@ -439,7 +461,9 @@ void binaryreader::processEvent(rbEvent* e)
       
 
     }
-
+  if (e->noiseRun())
+    _geoRoot["general"]["noise"]=1;
+  
   _event=e->gtc();
   
   uint8_t u[16],v[16],w[16];
@@ -1460,6 +1484,9 @@ bool binaryreader::Clustering1D(std::vector<lydaq::TdcChannel>& vChannel,std::st
     }
   hnhr->Fill(bhr.count()*1.);
   hnlr->Fill(blr.count()*1.);
+  std::cout<<bhr<<std::endl;
+  std::cout<<blr<<std::endl;
+  //getchar();
   return true;
 
 }

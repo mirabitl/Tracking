@@ -58,7 +58,8 @@ namespace Lmana
 
       yloc=yloc/cos(abs(_str-16)/96.*3.1415926535897932384626433/9);
 
-      yloc = yloc -2.18658 -(10.487-0.159423*yloc);
+      // 1786 yloc = yloc -2.18658 -(10.487-0.159423*yloc);
+      yloc = yloc -5.6153200 -(10.487-0.159423*yloc);
       return yloc;
 	//cos(abs(_str-16)*20./96*3.14159265359/180.)*yloc;
       //return _shift + 160. - (_t1 - _t0) * 18.39 / 2.0;
@@ -74,7 +75,7 @@ namespace Lmana
     double _t0, _t1, _shift;
   };
   // DTA 2.5 DTY 1.5 puis 5. 5.
-#define DTA 5.0
+#define DTA 4.0
 #define DTY 5.5
   class TdcCluster
   {
@@ -338,7 +339,8 @@ public:
   inline std::map<uint32_t, std::bitset<64>> &tCount() { return _tcount; }
   inline std::vector<sdhcal::PMRPtr *> &difList() { return thePMRPtrList_; }
   inline std::vector<lydaq::TdcChannel> &tdcChannels() { return _vAll; }
-
+  inline void setNoiseRun(bool n){_noiseRun=n;}
+  inline bool noiseRun(){return _noiseRun;}
 private:
   uint32_t _run, _event, _gtc;
   uint64_t _abcid;
@@ -350,6 +352,7 @@ private:
   std::map<uint32_t, std::bitset<64>> _tcount;
 
   std::vector<lydaq::TdcChannel> _vAll;
+  bool _noiseRun;
 };
 
 class rbProcessor

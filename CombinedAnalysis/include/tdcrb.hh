@@ -51,6 +51,7 @@ public:
   uint32_t numberOfDataSource();
   void setNFirst(uint32_t f) {_nrfirst=f;}
   void setNMax(uint32_t f) {_nrmax=f;}
+  void setNoise(bool n){_noise=n;}
 private:
   std::vector<std::pair<uint32_t,std::string> > _files;
   uint64_t _bxId,_bxId0;
@@ -75,6 +76,6 @@ private:
 
   uint64_t _0coarse[255];
   uint8_t  _0fine[255];
-
+  bool _noise;
 };
 #endif

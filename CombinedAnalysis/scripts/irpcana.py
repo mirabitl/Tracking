@@ -18,7 +18,7 @@ class analyse:
             self.f1 = TFile(direc+"/Noisehisto%d_0.root" % run)
         except:
             self.f1=None
-        self.f1=None
+        #self.f1=None
         self.P=0
         self.P0=0
         self.HVapp=0
@@ -252,6 +252,10 @@ class analyse:
         self.f0.cd("/gric")
         hxy=self.f0.Get("/gric/XY")
         hxy.SetTitle(" 4 points Track extrapolation to the iRPC %s" % self.comment)
+        hxya=self.f0.Get("/gric/XYA")
+        hxya14=self.f0.Get("/gric/XYA14")
+        hxya15=self.f0.Get("/gric/XYA15")
+
         hxyf=self.f0.Get("/gric/XYF")
         hxyf14=self.f0.Get("/gric/XYF14")
         hxyf15=self.f0.Get("/gric/XYF15")
@@ -297,6 +301,18 @@ class analyse:
         chxyf.Rebin2D(rbx,rby)
         chxyf14.Rebin2D(rbx,rby)
         chxyf15.Rebin2D(rbx,rby)
+
+
+        chxya=hxya.Clone("chxya")
+        chxya14=hxya14.Clone("chxya14")
+        chxya15=hxya15.Clone("chxya15")
+        
+
+        chxya.Rebin2D(rbx,rby)
+        chxya14.Rebin2D(rbx,rby)
+        chxya15.Rebin2D(rbx,rby)
+
+        
         chxyt.Rebin2D(rbx,rby)
         chxy.SetAxisRange(0.,35.,"X")
         chxy.SetAxisRange(20.,120.,"Y")
@@ -306,6 +322,13 @@ class analyse:
         chxyf14.SetAxisRange(20.,120.,"Y")
         chxyf15.SetAxisRange(0.,35.,"X")
         chxyf15.SetAxisRange(20.,120.,"Y")
+        chxya.SetAxisRange(0.,35.,"X")
+        chxya.SetAxisRange(20.,120.,"Y")
+        chxya14.SetAxisRange(0.,35.,"X")
+        chxya14.SetAxisRange(20.,120.,"Y")
+        chxya15.SetAxisRange(0.,35.,"X")
+        chxya15.SetAxisRange(20.,120.,"Y")
+
         chxyEff=chxyf.Clone("chxyEff")
         chxyEff.Divide(chxy)
         chxyEff.SetTitle("Local Efficiency map %s " % self.comment)
@@ -350,6 +373,60 @@ class analyse:
         result.append(int(heff32.GetEntries()))
         result.append(round(heff32.GetMean()*100,2))
         result.append(round(deff32,2))
+
+
+        effao=hxya.GetEntries()/hxy.GetEntries()
+        effao14=hxya14.GetEntries()/hxy.GetEntries()
+        effao15=hxya15.GetEntries()/hxy.GetEntries()
+        result.append(int(hxya.GetEntries()))
+        result.append(round(effao*100,2))
+        result.append(int(hxya14.GetEntries()))
+        result.append(round(effao14*100,2))
+        result.append(int(hxya15.GetEntries()))
+        result.append(round(effao15*100,2))
+
+        chxyaEff=chxya.Clone("chxyaEff")
+        chxyaEff.Divide(chxy)
+        chxyaEff14=chxya14.Clone("chxyaEff14")
+        chxyaEff14.Divide(chxy)
+        chxyaEff14.SetTitle("Local Efficiency map FR4 %s " % self.comment)
+        chxyaEff15=chxya15.Clone("chxyaEff15")
+        chxyaEff15.Divide(chxy)
+        chxyaEff15.SetTitle("Local Efficiency map EM888 %s " % self.comment)
+        heffa=TH1F("heffa","Local Efficiency Ntk ext>15",110,0,1.1)
+        dmin=max(0,effao*0.1)
+        dmax=min(1.1,effao*1.9)
+        nb=int((dmax-dmin)/0.005)
+        heffa1=TH1F("heffa1","Local Efficiency EM888 %s " % self.comment,nb,dmin,dmax)
+        heffa32=TH1F("heffa32","Local Efficiency FR4 %s " % self.comment,nb,dmin,dmax)
+
+        for i in range(1,chxy.GetNbinsX()):
+            for j in range(1,chxy.GetNbinsY()):
+                if (chxy.GetBinContent(i,j)>ncut):
+                    heffa.Fill(chxyaEff.GetBinContent(i,j))
+                    xp=chxy.GetXaxis().GetBinCenter(i)
+                    yp=chxy.GetYaxis().GetBinCenter(j)
+                    if (xp>=5 and xp<=15 and yp<84 and yp>41):
+                        heffa1.Fill(chxyaEff15.GetBinContent(i,j))
+                        #print chxy.GetBinContent(i,j), chxyf15.GetBinContent(i,j),chxyEff15.GetBinContent(i,j)
+                    if (xp>=17 and xp<=26 and yp<84 and yp>41):
+                        heffa32.Fill(chxyaEff14.GetBinContent(i,j))
+
+        #print heff1.GetMean()*100,heff32.GetMean()*100
+
+        deffa1=(heffa1.GetRMS()/math.sqrt(heffa1.GetEntries()))*100
+        deffa32=(heffa32.GetRMS()/math.sqrt(heffa32.GetEntries()))*100
+        result.append(int(heffa1.GetEntries()))
+        result.append(round(heffa1.GetMean()*100,2))
+        result.append(round(deffa1,2))
+        result.append(int(heffa32.GetEntries()))
+        result.append(round(heffa32.GetMean()*100,2))
+        result.append(round(deffa32,2))
+
+
+
+
+        
         print result
        
         c.cd(3)

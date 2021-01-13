@@ -70,7 +70,8 @@ class binaryreader : public rbProcessor
     std::vector<Lmana::TdcCluster> _clusters;
 
     ROOT::Math::XYZPoint _pex;
-    uint32_t _selfeb;
+    uint32_t _selfeb,_maxfeb;
+
     struct FullEventTree _fevt;
     TTree* tEvents_;
     TFile* treeFile_;

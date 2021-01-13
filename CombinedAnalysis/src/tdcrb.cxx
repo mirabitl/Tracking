@@ -252,6 +252,8 @@ uint32_t tdcrb::eventNumber(){return _event;}
 uint32_t tdcrb::runNumber(){return _run;}
 void tdcrb::Read()
 {
+  _theEvent.setNoiseRun(_noise);
+
   //  if (_analyzer == NULL) _analyzer= new lmana::TdcAnalyzer(_rh);
   for (auto p:_processors)
     p->init();
@@ -718,7 +720,7 @@ void tdcrb::end()
 
   //  _analyzer->end();
   std::stringstream sr;
-  if (_geo->general()["noise"].asUInt()==0)
+  if (_geo->general()["noise"].asUInt()==0 && !_noise)
     sr<<_geo->general()["directory"].asString()<<"/histo"<<_run<<"_0.root";
   else
     sr<<_geo->general()["directory"].asString()<<"/Noisehisto"<<_run<<"_0.root";
