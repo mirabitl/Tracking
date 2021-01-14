@@ -661,8 +661,8 @@ void binaryreader::fillTimePedestal( std::vector<lydaq::TdcChannel*> c_strip [])
 	TH1* hdt1=_rh->GetTH1(srcs.str()+"LR");
 	if (hdt0==NULL)
 	  {
-	    hdt0=_rh->BookTH1(srcs.str()+"HR",180,-30.,30.);
-	    hdt1=_rh->BookTH1(srcs.str()+"LR",180,-30.,30.);
+	    hdt0=_rh->BookTH1(srcs.str()+"HR",90,-30.,30.);
+	    hdt1=_rh->BookTH1(srcs.str()+"LR",90,-30.,30.);
 	  }
 	      
 	hdt0->Fill(t0p-t0);

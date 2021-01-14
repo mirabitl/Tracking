@@ -48,7 +48,11 @@ class analyse:
                     self.P=y["PDome"]
                 self.HVeff=self.calV(self.HVapp,self.P,self.T)
                 self.fC=(self.Threshold-480)*2.4
-                self.comment="R%d (%d/%d) VTH %d(%.1f fC)" % (self.run,self.HVapp,self.HVeff,self.Threshold,self.fC)
+                self.LR=self.Threshold
+                if ("LR" in y):
+                    self.LR=self.Threshold+y["LR"]
+                self.lrfC=(self.LR-480)*2.4
+                self.comment="R%d (%d/%d) VTH %d(%.1f/%.1f fC)" % (self.run,self.HVapp,self.HVeff,self.Threshold,self.fC,self.lrfC)
 
                 #print self.HVapp,self.HVeff,self.Threshold,self.fC,self.P,self.T
                 #print self.comment
@@ -102,20 +106,37 @@ class analyse:
             hst1=self.f0.Get("/Align/Pedestal%dLR" % (ist))
     
             if (hst0!=None):
+                xm=-100000.
+                maxh=0
+                for ib in range(1,hst0.GetNbinsX()):
+                    #print ib,hst0.GetBinContent(ib),maxh,hst0.GetXaxis().GetBinCenter(ib)
+                    if (hst0.GetBinContent(ib)>maxh):
+                        maxh=hst0.GetBinContent(ib)
+                        xm=hst0.GetXaxis().GetBinCenter(ib)
+                        #print "found"
+                hst0.GetXaxis().SetRangeUser(xm-5.,xm+5.);
+                dT0[ist]=hst0.GetMean()
+                print xm,xm-5.,xm+5.,hst0.GetMean()
                 c.cd()
                 hst0.Draw()
                 c.Modified()
                 c.Update()
                 val=raw_input()
-
-                dT0[ist]=hst0.GetMean()
             if (hst1!=None):
+                xm=-100000.
+                maxh=0
+                for ib in range(1,hst1.GetNbinsX()):
+                    if (hst1.GetBinContent(ib)>maxh):
+                        maxh=hst1.GetBinContent(ib)
+                        xm=hst1.GetXaxis().GetBinCenter(ib)
+                hst1.GetXaxis().SetRangeUser(xm-5.,xm+5.);
+                dT1[ist]=hst1.GetMean()
+                print xm,hst1.GetMean()
                 c.cd()
                 hst1.Draw()
                 c.Modified()
                 c.Update()
                 val=raw_input()
-                dT1[ist]=hst1.GetMean()
         print dT0
         print dT1
         t0=0
@@ -261,29 +282,30 @@ class analyse:
         hxyf15=self.f0.Get("/gric/XYF15")
         hxyf.SetTitle(" 4 points Track extrapolation to the iRPC when cluster selected %s" % self.comment)
         hxyt=self.f0.Get("/gric/XYT")
-        result=[]
+        result={}
         efft=hxyt.GetEntries()/hxy.GetEntries()
         effn=noiseff/hxy.GetEntries()/2E-5/3300./efft
-        result.append(int(self.run))
-        result.append(int(self.Threshold))
-        result.append(round(self.fC,1))
-        result.append(round(self.HVapp,2))
-        result.append(round(self.P,1))
-        result.append(round(self.T,1))
-        result.append(round(self.HVeff,2))
-        result.append(int(hxy.GetEntries()))
-        result.append(int(hxyt.GetEntries()))
-        result.append(round(efft*100,2))
-        result.append(round(effn,2))
+        result["run"]=int(self.run)
+        result["threshold"]=int(self.Threshold)
+        result["hrq"]=round(self.fC,1)
+        result["lrq"]=round(self.lrfC,1)
+        result["hvapp"]=round(self.HVapp,2)
+        result["pressure"]=round(self.P,1)
+        result["temperature"]=round(self.T,1)
+        result["hveff"]=round(self.HVeff,2)
+        result["ntk"]=int(hxy.GetEntries())
+        result["nintime"]=int(hxyt.GetEntries())
+        result["efftime"]=round(efft*100,2)
+        result["noiserate"]=round(effn,2)
         effo=hxyf.GetEntries()/hxy.GetEntries()
         effo14=hxyf14.GetEntries()/hxy.GetEntries()
         effo15=hxyf15.GetEntries()/hxy.GetEntries()
-        result.append(int(hxyf.GetEntries()))
-        result.append(round(effo*100,2))
-        result.append(int(hxyf14.GetEntries()))
-        result.append(round(effo14*100,2))
-        result.append(int(hxyf15.GetEntries()))
-        result.append(round(effo15*100,2))
+        result["nfound"]=int(hxyf.GetEntries())
+        result["effound"]=round(effo*100,2)
+        result["nfound14"]=int(hxyf14.GetEntries())
+        result["efffound14"]=round(effo14*100,2)
+        result["nfound15"]=int(hxyf15.GetEntries())
+        result["efffound15"]=round(effo15*100,2)
         #print hxy.GetEntries(),efft*100,effo*100,effo14*100,effo15*100
         c.cd(1)
         hxy.Draw("COLZ")
@@ -367,24 +389,26 @@ class analyse:
 
         deff1=(heff1.GetRMS()/math.sqrt(heff1.GetEntries()))*100
         deff32=(heff32.GetRMS()/math.sqrt(heff32.GetEntries()))*100
-        result.append(int(heff1.GetEntries()))
-        result.append(round(heff1.GetMean()*100,2))
-        result.append(round(deff1,2))
-        result.append(int(heff32.GetEntries()))
-        result.append(round(heff32.GetMean()*100,2))
-        result.append(round(deff32,2))
+        result["nblem888"]=int(heff1.GetEntries())
+        result["eflem888"]=round(heff1.GetMean()*100,2)
+        result["deflem888"]=round(deff1,2)
+        result["nblfr4"]=int(heff32.GetEntries())
+        result["eflfr4"]=round(heff32.GetMean()*100,2)
+        result["deflfr4"]=round(deff32,2)
 
 
         effao=hxya.GetEntries()/hxy.GetEntries()
         effao14=hxya14.GetEntries()/hxy.GetEntries()
         effao15=hxya15.GetEntries()/hxy.GetEntries()
-        result.append(int(hxya.GetEntries()))
-        result.append(round(effao*100,2))
-        result.append(int(hxya14.GetEntries()))
-        result.append(round(effao14*100,2))
-        result.append(int(hxya15.GetEntries()))
-        result.append(round(effao15*100,2))
 
+        result["nand"]=int(hxya.GetEntries())
+        result["effand"]=round(effao*100,2)
+        result["nand14"]=int(hxya14.GetEntries())
+        result["effand14"]=round(effao14*100,2)
+        result["nand15"]=int(hxya15.GetEntries())
+        result["effand15"]=round(effao15*100,2)
+
+        
         chxyaEff=chxya.Clone("chxyaEff")
         chxyaEff.Divide(chxy)
         chxyaEff14=chxya14.Clone("chxyaEff14")
@@ -416,12 +440,13 @@ class analyse:
 
         deffa1=(heffa1.GetRMS()/math.sqrt(heffa1.GetEntries()))*100
         deffa32=(heffa32.GetRMS()/math.sqrt(heffa32.GetEntries()))*100
-        result.append(int(heffa1.GetEntries()))
-        result.append(round(heffa1.GetMean()*100,2))
-        result.append(round(deffa1,2))
-        result.append(int(heffa32.GetEntries()))
-        result.append(round(heffa32.GetMean()*100,2))
-        result.append(round(deffa32,2))
+        result["nbaem888"]=int(heffa1.GetEntries())
+        result["efaem888"]=round(heffa1.GetMean()*100,2)
+        result["defaem888"]=round(deffa1,2)
+        result["nbafr4"]=int(heffa32.GetEntries())
+        result["efafr4"]=round(heffa32.GetMean()*100,2)
+        result["defafr4"]=round(deffa32,2)
+
 
 
 
@@ -449,9 +474,9 @@ class analyse:
         c.Modified()
         c.Update()
         #
-        c.SaveAs("Analyse%d.pdf" % self.run)
-        val=raw_input()
-
+        #c.SaveAs("Analyse%d.pdf" % self.run)
+        #val=raw_input()
+        return result
     def pltres(self):
         c=TCanvas("c","IRPC studies %d" % self.run ,545,345);
         self.f0.cd("/FEB/Chamber1/Strips/");
