@@ -114,7 +114,21 @@
     "1823":{"HVApplied":7600,"HVeff":0,"Threshold":500,"sf6":0.3,
 	    "TMeteo":0,"TDome":281,"PMeteo":0,"PDome":1002.1},
     "1824":{"HVApplied":7600,"HVeff":0,"Threshold":510,"sf6":0.3,
-	    "TMeteo":0,"TDome":282,"PMeteo":0,"PDome":1003.2}
+	    "TMeteo":0,"TDome":282,"PMeteo":0,"PDome":1003.2},
+    "1825":{"HVApplied":7200,"HVeff":0,"Threshold":510,"sf6":0.3,
+	    "TMeteo":0,"TDome":282,"PMeteo":0,"PDome":1003.9},
+    "1826":{"HVApplied":7300,"HVeff":0,"Threshold":510,"sf6":0.3,
+	    "TMeteo":0,"TDome":282,"PMeteo":0,"PDome":1004.1},
+    "1827":{"HVApplied":7400,"HVeff":0,"Threshold":510,"sf6":0.3,
+	    "TMeteo":0,"TDome":283,"PMeteo":0,"PDome":1003.2},
+    "1828":{"HVApplied":7500,"HVeff":0,"Threshold":510,"sf6":0.3,
+	    "TMeteo":0,"TDome":283,"PMeteo":0,"PDome":1003.0},
+    "1829":{"HVApplied":7200,"HVeff":0,"Threshold":500,"sf6":0.3,
+	    "TMeteo":0,"TDome":283,"PMeteo":0,"PDome":1003.3},
+    "1830":{"HVApplied":7200,"HVeff":0,"Threshold":495,"sf6":0.3,
+	    "TMeteo":0,"TDome":283,"PMeteo":0,"PDome":1003.9},
+    "1831":{"HVApplied":7200,"HVeff":0,"Threshold":505,"sf6":0.3,
+	    "TMeteo":0,"TDome":283,"PMeteo":0,"PDome":1004.3}
 
 
 }

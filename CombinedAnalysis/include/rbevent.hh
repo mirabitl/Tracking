@@ -59,7 +59,7 @@ namespace Lmana
       yloc=yloc/cos(abs(_str-16)/96.*3.1415926535897932384626433/9);
 
       // 1786 yloc = yloc -2.18658 -(10.487-0.159423*yloc);
-      yloc = yloc -5.6153200 -(10.487-0.159423*yloc);
+      // 1818 yloc = yloc -5.6153200 -(10.487-0.159423*yloc);
       return yloc;
 	//cos(abs(_str-16)*20./96*3.14159265359/180.)*yloc;
       //return _shift + 160. - (_t1 - _t0) * 18.39 / 2.0;
@@ -75,8 +75,10 @@ namespace Lmana
     double _t0, _t1, _shift;
   };
   // DTA 2.5 DTY 1.5 puis 5. 5.
-#define DTA 4.0
-#define DTY 5.5
+// was 4
+#define DTA 3.0
+// was 5.5
+#define DTY 8.5
   class TdcCluster
   {
   public:
