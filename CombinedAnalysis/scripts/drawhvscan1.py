@@ -4,7 +4,6 @@ from ROOT import gROOT
 from math import sin,sqrt
 from array import array
 import json
-
 c1 = TCanvas( 'c1', 'A Simple Graph Example', 200, 10, 700, 500 )
 
 #c1.SetFillColor( 42 )
@@ -17,7 +16,7 @@ print(result)
 #runs=[1795,1801,1802,1803,1804,1805]
 runs=[1792,1793,1794,1795,1797,1798,1799,1800]
 n = 0
-x, y4, y5,ya4,ya5,yt = array( 'd' ), array( 'd' ), array( 'd' ), array( 'd' ), array( 'd' ), array( 'd' )
+x, y4, y5,ya4,ya5,yt,nr = array( 'd' ), array( 'd' ), array( 'd' ), array( 'd' ), array( 'd' ), array( 'd' ), array( 'd' )
 dx, dy4, dy5,dya4,dya5,dyt = array( 'd' ), array( 'd' ), array( 'd' ), array( 'd' ), array( 'd' ), array( 'd' )
 hv=0
 leff=100
