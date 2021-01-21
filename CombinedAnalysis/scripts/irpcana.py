@@ -243,8 +243,13 @@ class analyse:
 
 
     def getratio(self,chamber=1,rebin=1,ncut=30):
-        c=TCanvas("irpc","IRPC Studies",545,842)
-        c.Divide(2,3)
+        xwsize=445
+        self.setTDRStyle()
+        gStyle.SetOptStat(10)
+        c=TCanvas("irpc","IRPC Studies",xwsize,)
+        c.Clear()
+        c.SetWindowSize(3*xwsize,xwsize)
+        c.Divide(3,1)
         #self.f0.cd("/FEB/Chamber%d/Raw" % chamber)
         #hst=self.f0.Get("/FEB/Chamber%d/Raw/Strips" % chamber)
         #c.cd(1)
@@ -273,11 +278,21 @@ class analyse:
         self.f0.cd("/gric")
         hxy=self.f0.Get("/gric/XY")
         hxy.SetTitle(" 4 points Track extrapolation to the iRPC %s" % self.comment)
+        hxy.GetXaxis().SetRangeUser(0.,35.)
+        hxy.GetYaxis().SetTitle("Y_{ext} (cm)");
+        hxy.GetXaxis().SetTitle("X_{ext} (cm)");
         hxya=self.f0.Get("/gric/XYA")
         hxya14=self.f0.Get("/gric/XYA14")
         hxya15=self.f0.Get("/gric/XYA15")
-
+        hxya.SetTitle(" 4 points Track extrapolation to the iRPC when HR & LR hit %s" % self.comment)
+        hxya.GetXaxis().SetRangeUser(0.,35.)
+        hxya.GetYaxis().SetTitle("Y_{ext} (cm)");
+        hxya.GetXaxis().SetTitle("X_{ext} (cm)");
         hxyf=self.f0.Get("/gric/XYF")
+        hxyf.GetXaxis().SetRangeUser(0.,35.)
+        hxyf.GetYaxis().SetTitle("Y_{ext} (cm)");
+        hxyf.GetXaxis().SetTitle("X_{ext} (cm)");
+
         hxyf14=self.f0.Get("/gric/XYF14")
         hxyf15=self.f0.Get("/gric/XYF15")
         hxyf.SetTitle(" 4 points Track extrapolation to the iRPC when cluster selected %s" % self.comment)
@@ -307,10 +322,27 @@ class analyse:
         result["nfound15"]=int(hxyf15.GetEntries())
         result["efffound15"]=round(effo15*100,2)
         #print hxy.GetEntries(),efft*100,effo*100,effo14*100,effo15*100
-        c.cd(1)
+        p=c.cd(1)
+        p.SetRightMargin(0.15)
         hxy.Draw("COLZ")
-        c.cd(2)
+        p=c.cd(2)
+        p.SetRightMargin(0.15)
+        hxya.Draw("COLZ")
+        c.Modified()
+        c.Update()
+        p=c.cd(3)
+        p.SetRightMargin(0.15)
         hxyf.Draw("COLZ")
+        c.Modified()
+        c.Update()
+        val=raw_input()
+        c.SaveAs("Analyse%d_Extrapolation.png" % self.run)
+        c.Clear()
+        c.SetWindowSize(2*xwsize,xwsize)
+
+        c.Divide(2,1)
+
+        
         rbx=rebin
         rby=2
         chxy=hxy.Clone("chxy")
@@ -454,31 +486,102 @@ class analyse:
         
         print result
        
-        c.cd(3)
+        p=c.cd(1)
+        p.SetRightMargin(0.15)
+        chxyEff15.GetZaxis().SetTitle("Efficiency");
+        chxyEff15.GetXaxis().SetTitle("X_{ext} (cm)");
+        chxyEff15.GetYaxis().SetTitle("Y_{ext} (cm)");
+
         chxyEff15.Draw("COLZ")
         c.Modified()
         c.Update()
         #val=raw_input()
-        c.cd(4)
+        p=c.cd(2)
+        p.SetRightMargin(0.15)
+        chxyEff14.GetZaxis().SetTitle("Efficiency");
+        chxyEff14.GetXaxis().SetTitle("X_{ext} (cm)");
+        chxyEff14.GetYaxis().SetTitle("Y_{ext} (cm)");
         chxyEff14.Draw("COLZ")
         c.Modified()
         c.Update()
-        #val=raw_input()
-        c.cd(5)
+        val=raw_input()
+        c.SaveAs("Analyse%d_LocalEfficiency.png" % self.run)
+        c.Clear()
+        c.Divide(2,1)
+
+
+        c.cd(1)
+        gStyle.SetOptStat(1110)
+        heff1.GetXaxis().SetTitle("Efficiency");
+        heff1.GetYaxis().SetTitle("Number Of bins");
+
         heff1.Draw()
         c.Modified()
         c.Update()
         #val=raw_input()
-        c.cd(6)
+        c.cd(2)
+        heff32.GetXaxis().SetTitle("Efficiency");
+        heff32.GetYaxis().SetTitle("Number Of bins");
+
         heff32.Draw()
         c.Modified()
         c.Update()
-        #
-        #c.SaveAs("Analyse%d.pdf" % self.run)
+        val=raw_input()
+        c.SaveAs("Analyse%d_SelectedLocalEfficiency.png" % self.run)
+        c.Clear()
+        c.Divide(2,1)
+        p=c.cd(1)
+        p.SetRightMargin(0.15)
+        gStyle.SetOptStat(0)
+        chxyaEff15.GetZaxis().SetTitle("Efficiency");
+        chxyaEff15.GetXaxis().SetTitle("X_{ext} (cm)");
+        chxyaEff15.GetYaxis().SetTitle("Y_{ext} (cm)");
+
+        chxyaEff15.Draw("COLZ")
+        c.Modified()
+        c.Update()
         #val=raw_input()
+        p=c.cd(2)
+        p.SetRightMargin(0.15)
+        chxyaEff14.GetZaxis().SetTitle("Efficiency");
+        chxyaEff14.GetXaxis().SetTitle("X_{ext} (cm)");
+        chxyaEff14.GetYaxis().SetTitle("Y_{ext} (cm)");
+
+        chxyaEff14.Draw("COLZ")
+        c.Modified()
+        c.Update()
+        val=raw_input()
+        c.SaveAs("Analyse%d_LocalANDEfficiency.png" % self.run)
+        c.Clear()
+        c.Divide(2,1)
+
+
+        c.cd(1)
+        gStyle.SetOptStat(1110)
+        heffa1.GetXaxis().SetTitle("Efficiency");
+        heffa1.GetYaxis().SetTitle("Number Of bins");
+
+        heffa1.Draw()
+        c.Modified()
+        c.Update()
+        #val=raw_input()
+        c.cd(2)
+        heffa32.GetXaxis().SetTitle("Efficiency");
+        heffa32.GetYaxis().SetTitle("Number Of bins");
+
+        heffa32.Draw()
+        c.Modified()
+        c.Update()
+        val=raw_input()
+        c.SaveAs("Analyse%d_SelectedLocalANDEfficiency.png" % self.run)
+
+        #
+
         return result
     def pltres(self):
-        c=TCanvas("c","IRPC studies %d" % self.run ,545,345);
+        xwsize=345
+        self.setTDRStyle()
+        c=TCanvas("c","IRPC studies %d" % self.run ,xwsize,xwsize);
         c.GetFrame().SetBorderSize( 12 )
         gStyle.SetOptStat(0)
         self.f0.cd("/FEB/Chamber1/Strips/");

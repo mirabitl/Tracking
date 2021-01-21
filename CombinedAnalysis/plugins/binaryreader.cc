@@ -391,11 +391,12 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
 	hxyf14->Fill(_pex.X(),_pex.Y());
       if (_selfeb==15)
 	hxyf15->Fill(_pex.X(),_pex.Y());
+      this->Clustering1D(vChannel,"FEB");
     }
   else
     {
     hxym->Fill(_pex.X(),_pex.Y());
-    this->Clustering1D(vChannel,"FEB");
+    this->Clustering1D(vChannel,"Missed");
     }
   if (_selfeb!=0)
     {
@@ -1454,6 +1455,20 @@ bool binaryreader::Clustering1D(std::vector<lydaq::TdcChannel>& vChannel,std::st
   std::bitset<48> bhr;
   std::bitset<48> blr;
   double mttime=1E12;
+  std::stringstream sraw;
+  sraw<<"/"<<subdir<<"/Clustering1D/";
+  TH1* hnhr=_rh->GetTH1(sraw.str()+"HRCount");
+  TH1* hnlr=_rh->GetTH1(sraw.str()+"LRCount");
+  TH1* hdhr=_rh->GetTH1(sraw.str()+"HRDist");
+  TH1* hdlr=_rh->GetTH1(sraw.str()+"LRDist");
+  if (hnhr==NULL)
+    {
+      hnhr=_rh->BookTH1(sraw.str()+"HRCount",50,-0.1,49.9);
+      hnlr=_rh->BookTH1(sraw.str()+"LRCount",50,-0.1,49.9);
+      hdhr=_rh->BookTH1(sraw.str()+"HRDist",200,-50.,50.);
+      hdlr=_rh->BookTH1(sraw.str()+"LRDist",200,-50.,50.);
+    }
+
    for (auto x=vChannel.begin();x!=vChannel.end();x++)
     {
       if (x->channel()==1) continue;
@@ -1469,18 +1484,15 @@ bool binaryreader::Clustering1D(std::vector<lydaq::TdcChannel>& vChannel,std::st
       if (x->side(_geo->feb(x->feb()))==0 && x->pedSubTime(_geo->feb(x->feb()))>(15+mttime)) continue;
       if (x->side(_geo->feb(x->feb()))==1 && x->pedSubTime(_geo->feb(x->feb()))>(40+mttime)) continue;
       if (x->side(_geo->feb(x->feb()))==0)
+	{
 	bhr.set(x->detectorStrip(_geo->feb(x->feb())),1);
+	hdhr->Fill(x->detectorStrip(_geo->feb(x->feb()))-_pex.X());
+	}
       else
+	{
 	blr.set(x->detectorStrip(_geo->feb(x->feb())),1);
-    }
-  std::stringstream sraw;
-  sraw<<"/"<<subdir<<"/Clustering1D/";
-  TH1* hnhr=_rh->GetTH1(sraw.str()+"HRCount");
-  TH1* hnlr=_rh->GetTH1(sraw.str()+"LRCount");
-  if (hnhr==NULL)
-    {
-      hnhr=_rh->BookTH1(sraw.str()+"HRCount",50,-0.1,49.9);
-      hnlr=_rh->BookTH1(sraw.str()+"LRCount",50,-0.1,49.9);
+	hdlr->Fill(x->detectorStrip(_geo->feb(x->feb()))-_pex.X());
+	}
     }
   hnhr->Fill(bhr.count()*1.);
   hnlr->Fill(blr.count()*1.);
