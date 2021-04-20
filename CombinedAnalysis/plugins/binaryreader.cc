@@ -18,6 +18,8 @@
 #include <sstream>
 #include "TPrincipal.h"
 #include "HoughLocal.hh"
+#include <TROOT.h>
+#include <TStyle.h>
 
 using namespace lydaq;
 using namespace Lmana;
@@ -417,12 +419,18 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
   if (_geoRoot["general"]["display"].asUInt()==0) return;
   if (TCHits==NULL)
     {
-      TCHits=new TCanvas("TCHits","tChits1",900,900);
+      TCHits=new TCanvas("TCHits","tChits1",800,400);
       TCHits->Modified();
       TCHits->Draw();
-      TCHits->Divide(1,2);
+      TCHits->Divide(2,1);
+      gStyle->SetOptStat(0);
     }
   TCHits->cd(1);
+  hzx->SetTitle("Vue Z X_{tel}");
+  hzx->GetXaxis()->SetRangeUser(40.,110.);
+  hzx->GetYaxis()->SetRangeUser(0.,50.);
+  hzx->GetXaxis()->SetTitle("Z (cm)");
+  hzx->GetYaxis()->SetTitle("X_{tel} (cm)");
   hzx->SetMarkerStyle(25);
   hzx->SetMarkerColor(kRed);
   hzx->Draw("P");
@@ -431,6 +439,12 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
   TCHits->Draw();
   TCHits->Update();
   TCHits->cd(2);
+  hzy->SetTitle("Vue Z Y_{tel}");
+  hzy->GetXaxis()->SetRangeUser(40.,110.);
+  hzy->GetYaxis()->SetRangeUser(-3,40.);
+  hzy->GetXaxis()->SetTitle("Z (cm)");
+  hzy->GetYaxis()->SetTitle("Y_{tel} (cm)");
+
   hzy->SetMarkerStyle(22);
   hzy->SetMarkerColor(kGreen);
   hzy->Draw("P");
@@ -440,7 +454,7 @@ void binaryreader::processCoincidence(rbEvent* e,uint32_t ibc)
   TCHits->Update();
   usleep(10000);
   TCHits->Update();
-
+  TCHits->SaveAs("Telescope_track.pdf");
   getchar();
 }
 void binaryreader::processEvent(rbEvent* e)
