@@ -1428,3 +1428,175 @@ def processAllDCS(fdb,dbo,diro=".",proc=True,store=True,draw=False,canvas=None,f
     fout.close()
 def approx(v,v1,v2,a1,a2):
   return a1+(v-v1)*(a2-a1)*1./(v2-v1)
+
+def fithr2(run,tdc,vthmin,vthmax):
+  rb=1
+  fi=0
+  la=63
+  ped=[]
+  for i in range(64):
+    ped.append(0)
+  f82=TFile("/tmp/histo%d_0.root" % run);
+  f82.cd("/gric/SCURVE%d" % (tdc));
+  c1=TCanvas();
+  #c2=TCanvas("c2","Test",1400,900);
+  #c2.cd()
+  #c2.Divide(6,4)
+  #c2.Draw()
+  #c2.Update()
+  #val = raw_input()
+  #c2.Draw()
+  fout=open("summary_pedestal_%d_tdc%d.txt" % (run,tdc),"w");
+  fout.write("+--+-----+-----+-----+ \n");
+  gStyle.SetOptFit();
+  ncha=64
+  hmean=TH1F("hmean","Summary %d %d " %(run,tdc),vthmax-vthmin+1,vthmin,vthmax)
+
+  hnoise=TH1F("hnoise","Summary noise %d %d " %(run,tdc),100,0.,30.)
+  hpmean=TH1F("hpmean","Summary %d %d " %(run,tdc),2*ncha,0.,2.*ncha);
+  hpmax=TH1F("hpmean","Summary max %d %d " %(run,tdc),2*ncha,0.,2.*ncha);
+  hpnoise=TH1F("hpnoise","Summary noise %d %d " %(run,tdc),2*ncha,0.,2.*ncha);
+#  scfit=TF1("scfit","[0]*TMath::Erfc((x-[1])/[2])",vthmin+1,vthmax);
+  scfit=TF1("scfit","gaus",vthmin+1,vthmax);
+  
+  for ip in range(la,fi,-1):
+      #c2.cd()
+      hs=None
+
+      hs=f82.Get("/gric/SCURVE%d/Padc%d" % (tdc,ip));
+      if (hs==None):
+          continue;
+      if (hs.GetEntries()==0):
+        continue
+      print ip,fi,la," found"
+      hs.Scale(1./2700.);
+      nmax=0
+      for i in range(1,hs.GetNbinsX()):
+        if (hs.GetBinContent(i)==0):
+              if (hs.GetBinContent(i-1)!=0 and hs.GetBinContent(i+1)!=0):
+                  hs.SetBinContent(i,(hs.GetBinContent(i-1)+hs.GetBinContent(i+1))/2.)
+        else:
+          if (hs.GetBinContent(i)>nmax):
+              nmax=hs.GetBinContent(i)
+
+      hs.GetXaxis().SetRangeUser(vthmin-1,vthmax);
+      icolor= ip%4 +1
+      istyle= ip/4+1
+      hs.SetLineColor(icolor)
+      hs.SetLineStyle(istyle)
+      hs.SetLineWidth(2)
+      c1.cd()
+      c1.Draw()
+      
+
+
+
+      if (ip==63):
+        hs.Draw()
+      else:
+        hs.Draw("SAME")
+  c1.Update()
+  #c1.SaveAs("Run%d_AllStrip%d.root" % (run,tdc,asic));
+  c1.SaveAs("Run%d_AllStrip%d.png" % (run,tdc));
+
+  val = raw_input()
+
+  for ip in range(fi,la+1):
+      #c2.cd()
+
+      hs=None
+      hs=f82.Get("/gric/SCURVE%d/Padc%d" % (tdc,ip));
+      if (hs==None):
+          continue;
+      if (hs.GetEntries()==0):
+        continue
+      #hs.Scale(1./2700.);
+      hder=TH1F("hder%d" % ip,"derivative",400/rb,0.,400.)	
+      hs.Rebin(rb)
+      vmax=0
+      for i in range(1,hs.GetNbinsX()):
+          if (hs.GetBinContent(i)==0):
+              if (hs.GetBinContent(i-1)!=0 and hs.GetBinContent(i+1)!=0):
+                  hs.SetBinContent(i,(hs.GetBinContent(i-1)+hs.GetBinContent(i+1))/2.)
+          else:
+            if (hs.GetBinContent(i)>0):
+              vmax=hs.GetBinCenter(i)
+      for i in range(1,hs.GetNbinsX()):
+        if (hs.GetBinContent(i)-hs.GetBinContent(i+1)>-10):
+          hder.SetBinContent(i,hs.GetBinContent(i)-hs.GetBinContent(i+1))
+      #hder.Rebin(4)
+      
+      hder.GetXaxis().SetRangeUser(vthmin-1,vthmax);
+      nmax=0
+      xmax=0
+      for i in range(1,hder.GetNbinsX()):
+          if (hder.GetBinContent(i)>nmax):
+              nmax=hder.GetBinContent(i)
+              xmax=hder.GetBinCenter(i)
+      scfit.SetParameter(0,nmax);
+      scfit.SetParameter(1,xmax);
+      #scfit.SetParameter(2,hder.GetRMS());
+      scfit.SetParameter(2,5.);
+
+
+
+      hs.GetXaxis().SetRangeUser(vthmin+1,vthmax);
+      hder.Fit("scfit","Q","",xmax-20,xmax+20);
+      #hs.GetXaxis().SetRangeUser(vthmin-1,scfit.GetParameter(1)+60);
+      #gPad.SetLogy();
+      rped=scfit.GetParameter(1)
+      c1.cd()
+      c1.Draw()
+      
+
+      hder.Draw()
+      c1.Update()
+      #val1 = raw_input()
+
+      print "heho ",rped,hder.GetMean(),scfit.GetParameter(2)
+      rped=hder.GetMean()
+      
+      hs.Draw()
+      
+
+      c1.cd()
+      c1.Draw()
+      c1.Update()
+
+      fout.write("|%2d|%5.1f|%5.1f|%5.2f| \n" % (ip,scfit.GetParameter(0),rped,scfit.GetParameter(2)));
+      hmean.Fill(rped)
+      hpmax.SetBinContent(ip+1,vmax)
+      hnoise.Fill(scfit.GetParameter(2))
+      hpmean.SetBinContent(ip+1,rped);
+      hpnoise.SetBinContent(ip+1,scfit.GetParameter(2))
+      #c1.SaveAs("Run%d_Strip%d.root" % (run,ip));
+      #val = raw_input()
+
+      #hder.Draw()
+      
+      #c1.Update()
+      #val = raw_input()
+  c1.cd()
+  hmean.Draw()
+  hpmean.GetYaxis().SetRangeUser(vthmin,vthmax)
+  hpmean.Draw()
+  c1.Update()
+  c1.SaveAs("Summary_%d_TDC%d.png" % (run,tdc));
+  val = raw_input()
+  hnoise.Draw()
+  c1.Update()
+  val = raw_input()
+  hpnoise.Draw()
+  c1.Update()
+  val = raw_input()
+  c1.Update()
+  c1.SaveAs("Summary_Noise_%d_TDC%d.png" % (run,tdc));
+  hpmax.Draw()
+  c1.Update()
+  val = raw_input()
+  c1.Update()
+  c1.SaveAs("Summary_Max_%d_TDC%d.png" % (run,tdc));
+
+  fout.write("+--+-----+-----+-----+ \n");
+  fout.close()
+  return 0

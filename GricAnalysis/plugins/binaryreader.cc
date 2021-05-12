@@ -810,7 +810,7 @@ void binaryreader::processEvent(rbEvent *e)
   uint8_t u[16], v[16], w[16];
   if (!_started)
     return;
-  //printf("BR => %d %d %d \n",e->run(),e->event(),e->gtc());
+  printf("BR => %d %d %d %d \n",e->run(),e->event(),e->gtc(),e->seuil());
   _event = e->gtc();
   _run = e->run();
   _gtc=e->gtc();

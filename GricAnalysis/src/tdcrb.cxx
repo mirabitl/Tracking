@@ -375,7 +375,7 @@ void tdcrb::read()
 	      b.uncompress();
 	      memcpy(&_buf[_idx], b.payload(),b.payloadSize());
 	      b.setDetectorId(b.detectorId()&0xFF);
-	      DEBUG_PRINTF("\t \t %d %x %d %x %d %d %d\n",b.detectorId()&0XFF,b.dataSourceId(),b.eventId(),b.bxId(),b.payloadSize(),bsize,_idx);
+	      INFO_PRINTF("\t \t %d %x %d %x %d %d %d\n",b.detectorId()&0XFF,b.dataSourceId(),b.eventId(),b.bxId(),b.payloadSize(),bsize,_idx);
 	      
 	      _bxId=b.bxId();
 	      if (_bxId0==0) _bxId0=_bxId;
@@ -455,6 +455,7 @@ void tdcrb::read()
 			    if ((fb[ip*FSIZE+k]>>kk)&1) gp|=(1<<(7-kk));
 			  efb[iptr+k]=gp;
 			}
+		      //#define DEBUGEVENTS
 		      #ifdef DEBUGEVENTS
 		      std::bitset<64> pads;
 		      pads.reset();
@@ -512,7 +513,7 @@ void tdcrb::read()
 			  printf("\n");
 			}
 		    }
-		  printf("\n");
+		  printf("%d \n",_vthSet);
 		  if (ntohs(sbuf[0])>16) getchar();
 		  #endif
 		}
