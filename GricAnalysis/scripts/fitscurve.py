@@ -1430,6 +1430,8 @@ def approx(v,v1,v2,a1,a2):
   return a1+(v-v1)*(a2-a1)*1./(v2-v1)
 
 def fithr2(run,tdc,vthmin,vthmax):
+  outd= "output/run%d/gric%d" % (run,tdc)
+  os.system("mkdir -p "+outd)   
   rb=1
   fi=0
   la=63
@@ -1446,7 +1448,7 @@ def fithr2(run,tdc,vthmin,vthmax):
   #c2.Update()
   #val = raw_input()
   #c2.Draw()
-  fout=open("summary_pedestal_%d_tdc%d.txt" % (run,tdc),"w");
+  fout=open(outd+"/summary_pedestal.txt","w");
   fout.write("+--+-----+-----+-----+ \n");
   gStyle.SetOptFit();
   ncha=64
@@ -1497,9 +1499,9 @@ def fithr2(run,tdc,vthmin,vthmax):
         hs.Draw("SAME")
   c1.Update()
   #c1.SaveAs("Run%d_AllStrip%d.root" % (run,tdc,asic));
-  c1.SaveAs("Run%d_AllStrip%d.png" % (run,tdc));
+  c1.SaveAs(outd+"/AllStrip.pdf");
 
-  val = raw_input()
+  #val = raw_input()
 
   for ip in range(fi,la+1):
       #c2.cd()
@@ -1512,20 +1514,22 @@ def fithr2(run,tdc,vthmin,vthmax):
         continue
       #hs.Scale(1./2700.);
       hder=TH1F("hder%d" % ip,"derivative",400/rb,0.,400.)	
-      hs.Rebin(rb)
+      #hs.Rebin(rb)
+      #hs.Smooth()
       vmax=0
-      for i in range(1,hs.GetNbinsX()):
+      for i in range(1,hs.GetNbinsX()-1):
           if (hs.GetBinContent(i)==0):
               if (hs.GetBinContent(i-1)!=0 and hs.GetBinContent(i+1)!=0):
                   hs.SetBinContent(i,(hs.GetBinContent(i-1)+hs.GetBinContent(i+1))/2.)
           else:
-            if (hs.GetBinContent(i)>0):
+            if (hs.GetBinContent(i)>0 and hs.GetBinCenter(i) <vthmax):
               vmax=hs.GetBinCenter(i)
+              #print(i,hs.GetBinContent(i),vmax,hs.GetNbinsX()-1)
       for i in range(1,hs.GetNbinsX()):
         if (hs.GetBinContent(i)-hs.GetBinContent(i+1)>-10):
           hder.SetBinContent(i,hs.GetBinContent(i)-hs.GetBinContent(i+1))
-      #hder.Rebin(4)
-      
+      #hder.Rebin(2)
+      hder.Smooth()
       hder.GetXaxis().SetRangeUser(vthmin-1,vthmax);
       nmax=0
       xmax=0
@@ -1535,13 +1539,13 @@ def fithr2(run,tdc,vthmin,vthmax):
               xmax=hder.GetBinCenter(i)
       scfit.SetParameter(0,nmax);
       scfit.SetParameter(1,xmax);
-      #scfit.SetParameter(2,hder.GetRMS());
-      scfit.SetParameter(2,5.);
+      scfit.SetParameter(2,hder.GetRMS()*0.5);
+      #scfit.SetParameter(2,5.);
 
 
 
       hs.GetXaxis().SetRangeUser(vthmin+1,vthmax);
-      hder.Fit("scfit","Q","",xmax-20,xmax+20);
+      hder.Fit("scfit","Q","",xmax-10,xmax+20);
       #hs.GetXaxis().SetRangeUser(vthmin-1,scfit.GetParameter(1)+60);
       #gPad.SetLogy();
       rped=scfit.GetParameter(1)
@@ -1563,7 +1567,7 @@ def fithr2(run,tdc,vthmin,vthmax):
       c1.Draw()
       c1.Update()
 
-      fout.write("|%2d|%5.1f|%5.1f|%5.2f| \n" % (ip,scfit.GetParameter(0),rped,scfit.GetParameter(2)));
+      fout.write("|%2d|%5.1f|%5.1f|%5.2f| \n" % (ip,rped,scfit.GetParameter(2),vmax));
       hmean.Fill(rped)
       hpmax.SetBinContent(ip+1,vmax)
       hnoise.Fill(scfit.GetParameter(2))
@@ -1581,22 +1585,33 @@ def fithr2(run,tdc,vthmin,vthmax):
   hpmean.GetYaxis().SetRangeUser(vthmin,vthmax)
   hpmean.Draw()
   c1.Update()
-  c1.SaveAs("Summary_%d_TDC%d.png" % (run,tdc));
-  val = raw_input()
+  c1.SaveAs(outd+"/Pedestal.pdf");
+  #val = raw_input()
   hnoise.Draw()
   c1.Update()
-  val = raw_input()
+  c1.SaveAs(outd+"/NoiseInt.pdf");
+  #val = raw_input()
   hpnoise.Draw()
   c1.Update()
-  val = raw_input()
+  #val = raw_input()
   c1.Update()
-  c1.SaveAs("Summary_Noise_%d_TDC%d.png" % (run,tdc));
+  c1.SaveAs(outd+"/Noise.pdf");
   hpmax.Draw()
   c1.Update()
-  val = raw_input()
+  #val = raw_input()
   c1.Update()
-  c1.SaveAs("Summary_Max_%d_TDC%d.png" % (run,tdc));
-
+  c1.SaveAs(outd+"/Max.pdf");
+  c1.Close()
   fout.write("+--+-----+-----+-----+ \n");
   fout.close()
   return 0
+def fitahr2(run,vthmin,vthmax):
+    for i in range(2,8):
+        fithr2(run,10+i,vthmin,vthmax)
+        fithr2(run,20+i,vthmin,vthmax)
+        fithr2(run,30+i,vthmin,vthmax)
+        fithr2(run,40+i,vthmin,vthmax)
+        fithr2(run,50+i,vthmin,vthmax)
+        fithr2(run,60+i,vthmin,vthmax)
+        fithr2(run,70+i,vthmin,vthmax)
+        fithr2(run,80+i,vthmin,vthmax)
