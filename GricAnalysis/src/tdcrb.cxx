@@ -403,7 +403,7 @@ void tdcrb::read()
 		  // getchar();
 
 		}
-	      if (_detId==140)
+	      if (_detId==140 || detId==160)
 		{
 		  uint32_t* ibuf=(uint32_t*) b.payload();
 
