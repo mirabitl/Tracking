@@ -1501,7 +1501,7 @@ def fithr2(run,tdc,vthmin,vthmax):
   #c1.SaveAs("Run%d_AllStrip%d.root" % (run,tdc,asic));
   c1.SaveAs(outd+"/AllStrip.pdf");
 
-  #val = raw_input()
+  val = raw_input()
 
   for ip in range(fi,la+1):
       #c2.cd()
@@ -1580,27 +1580,32 @@ def fithr2(run,tdc,vthmin,vthmax):
       
       #c1.Update()
       #val = raw_input()
-  c1.cd()
+  c1.Divide(2,2)
+  c1.cd(1)
+  
   hmean.Draw()
   hpmean.GetYaxis().SetRangeUser(vthmin,vthmax)
   hpmean.Draw()
   c1.Update()
-  c1.SaveAs(outd+"/Pedestal.pdf");
+  #c1.SaveAs(outd+"/Pedestal.pdf");
   #val = raw_input()
+  c1.cd(2)
   hnoise.Draw()
   c1.Update()
-  c1.SaveAs(outd+"/NoiseInt.pdf");
+  #c1.SaveAs(outd+"/NoiseInt.pdf");
   #val = raw_input()
+  c1.cd(3)
   hpnoise.Draw()
   c1.Update()
   #val = raw_input()
   c1.Update()
-  c1.SaveAs(outd+"/Noise.pdf");
+  #c1.SaveAs(outd+"/Noise.pdf");
+  c1.cd(4)
   hpmax.Draw()
   c1.Update()
-  #val = raw_input()
+  val = raw_input()
   c1.Update()
-  c1.SaveAs(outd+"/Max.pdf");
+  c1.SaveAs(outd+"/Summary.pdf");
   c1.Close()
   fout.write("+--+-----+-----+-----+ \n");
   fout.close()
