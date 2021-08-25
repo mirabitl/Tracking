@@ -14,7 +14,7 @@ result=json.loads(fout.read())
 print(result)
 
 runs=[1819,1820,1821,1822,1823]
-runs=[1824,1825,1826,1827,1828]
+#runs=[1824,1825,1826,1827,1828]
 
 n = 0
 x, y4, y5,ya4,ya5,yt = array( 'd' ), array( 'd' ), array( 'd' ), array( 'd' ), array( 'd' ), array( 'd' )
@@ -41,7 +41,8 @@ for i in runs:
     ya5.append(r["efaem888"] )
     dya5.append(r["defaem888"] )
     hv=r["hveff"]
-    thrc="%.0f_{HR}/%.0f_{LR} fC" % (r["hrq"],r["lrq"])
+    # calibration fausse d'un facteur 3 (7.2/2.4)
+    thrc="%.0f_{HR}/%.0f_{LR} fC" % (r["hrq"]*3,r["lrq"]*3)
     print(' i %i %f %f ' % (i,x[n],y5[n]))
     if (y4[n]<leff):
         leff=y4[n]
@@ -98,3 +99,4 @@ c1.GetFrame().SetBorderSize( 12 )
 c1.Modified()
 c1.Update()
 val=raw_input()
+c1.SaveAs("%s.png" % val )

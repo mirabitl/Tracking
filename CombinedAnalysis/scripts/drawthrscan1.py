@@ -13,8 +13,8 @@ fout=open("etc/SummaryPR1.json")
 result=json.loads(fout.read())
 print(result)
 
-runs=[1786,1787,1788,1789,1790,1791,1792]
-#runs=[1795,1801,1802,1803,1804,1805]
+#runs=[1786,1787,1788,1789,1790,1791,1792]
+runs=[1795,1801,1802,1803,1804,1805]
 #runs=[1792,1793,1794,1795,1797,1798,1799,1800]
 n = 0
 x, y4, y5,ya4,ya5,yt = array( 'd' ), array( 'd' ), array( 'd' ), array( 'd' ), array( 'd' ), array( 'd' )
@@ -25,7 +25,8 @@ leff=100
 thrc=""
 for i in runs:
     r=result["%d" %i]
-    x.append(r["hrq"])
+    # calibration fausse facteur 7.2/2.4
+    x.append(r["hrq"]*3.)
     #x.append(r["hveff"])
     dx.append(1.)
     yt.append(r["efftime"] )

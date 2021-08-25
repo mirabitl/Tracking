@@ -40,7 +40,8 @@ for i in runs:
     ya5.append(r["efaem888"] )
     dya5.append(r["defaem888"] )
     hv=r["hveff"]
-    thrc="(H%.0f/L%.0f) fC" % (r["hrq"],r["lrq"])
+    # Calibration fausse d'un facteur 3
+    thrc="(H%.0f/L%.0f) fC" % (r["hrq"]*3,r["lrq"]*3)
     print(' i %i %f %f ' % (i,x[n],y5[n]))
     if (y4[n]<leff):
         leff=y4[n]
