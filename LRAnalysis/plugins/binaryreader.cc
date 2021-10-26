@@ -96,8 +96,8 @@ void binaryreader::scurveAnalysis(rbEvent *e)
 	      uint32_t k=e->channel(idx);
 	      if (e->seuil()==556 && k==10)
 		{
-		  fprintf(stderr,"iptr %d bcid %d \n",idx,e->bcid(idx));
-		  getchar();
+		  //fprintf(stderr,"iptr %d bcid %d \n",idx,e->bcid(idx));
+		  //getchar();
 		}
 
 	      std::stringstream srpc("");

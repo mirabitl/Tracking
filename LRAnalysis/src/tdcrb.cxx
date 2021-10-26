@@ -364,7 +364,7 @@ void tdcrb::read()
 	      _bxId=b.bxId();
 	      if (_bxId0==0) _bxId0=_bxId;
 	      uint32_t _detId=b.detectorId()&0xFF;
-	      //DEBUG_PRINTF("DETID %d \n",_detId);
+	      INFO_PRINTF("DETID %d \n",_detId);
 	      // getchar();
 	      if (_detId==255)
 		{
@@ -451,17 +451,24 @@ void tdcrb::read()
 	  for (auto itd= _theEvent.difList().begin();itd!= _theEvent.difList().end();itd++)
 	    {
 	      _theEvent.setFrameCount((*itd)->getID(),(*itd)->getNumberOfFrames());
-	      std::cout<<(*itd)->getID()<<"  frames "<<(*itd)->getNumberOfFrames()<<std::endl;
+	      std::cout<<(*itd)->getID()<<"  Nb frames= "<<(*itd)->getNumberOfFrames()<<std::endl;
+	      // Skip first (0,0,0,0) and last frame (a0,a0,a0,a0)
 	      for (int j=0;j<(*itd)->getNumberOfFrames();j++)
 		{
+		  //uint8_t* fc=(*itd)->getFramePtr(j);
+		  //if (fc[0]==0 && fc[1]==0 && fc[2]==0 && fc[3]==0) continue;
+		  //if (fc[0]==0xa0 && fc[1]==0xa0 && fc[2]==0xa0 && fc[3]==0xa0) continue;
+
+		  if (!((*itd)->getFramePtr(j)[DU_FRAME_CHANNEL_SHIFT]&0x1)) continue;
 		  //uint64_t* bp=( uint64_t*)&(*itd)->getFramePtr(j)[4];
 		  uint32_t* bc=( uint32_t*)&(*itd)->getFramePtr(j)[0];
 		  uint32_t channel=(*itd)->getFrameChannel(j);
 		  memcpy(_theEvent.frame(_theEvent.iPtr((*itd)->getID(),j)),(*itd)->getFramePtr(j),FSIZE);
-		  bool doprint=(_theEvent.bcid(_theEvent.iPtr((*itd)->getID(),j))<100000) &&( channel==3 || channel ==2);
+		  bool doprint=(_theEvent.bcid(_theEvent.iPtr((*itd)->getID(),j))<100) &&( channel==3 || channel ==2);
+		  doprint=false;
 		  hadprint=hadprint||doprint;
 		  //doprint=(channel==10 && _vthSet==554);
-		  doprint=true;
+		  //doprint=true;
 		  //std::cout<<channel<<std::endl;
 		  if (doprint){
 		  for ( int ii=0;ii<4;ii++)
@@ -474,11 +481,11 @@ void tdcrb::read()
 		 if (doprint){
 		std::cout<<" BCID "<<_theEvent.bcid(_theEvent.iPtr((*itd)->getID(),j));
 		std::cout<<" Channel "<<(*itd)->getFrameChannel(j)<<std::endl;
-			  
+		getchar();
 		 }
 		}
-		 if (hadprint)
-		   getchar();
+	      //if (hadprint)
+	      //   getchar();
 
 	    }
 	  printf(" %d %d TCOUNT %d TMAP %d \n",_run,_event,_theEvent.frameCount(1),_theEvent.tFrame().size());

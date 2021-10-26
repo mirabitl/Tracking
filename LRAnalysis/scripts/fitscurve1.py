@@ -1429,7 +1429,7 @@ def processAllDCS(fdb,dbo,diro=".",proc=True,store=True,draw=False,canvas=None,f
 def approx(v,v1,v2,a1,a2):
   return a1+(v-v1)*(a2-a1)*1./(v2-v1)
 
-def fithr2(run,tdc,vthmin,vthmax):
+def fithr2(run,tdc,vthmin,vthmax,onechan=None):
   outd= "output/run%d/gric%d" % (run,tdc)
   os.system("mkdir -p "+outd)   
   rb=1
@@ -1502,17 +1502,19 @@ def fithr2(run,tdc,vthmin,vthmax):
   c1.SaveAs(outd+"/AllStrip.pdf");
 
   val = raw_input()
-
+  gStyle.SetOptStat(11111111)
   for ip in range(fi,la+1):
       #c2.cd()
-
+      if (onechan!=None and ip!=onechan):
+          continue
       hs=None
       hs=f82.Get("/LR/SCURVE%d/Padc%d" % (tdc,ip));
       if (hs==None):
           continue;
       if (hs.GetEntries()==0):
         continue
-      #hs.Scale(1./2700.);
+      if (hs.GetBinContent(vthmin+3)>100000):
+        hs.Scale(1./hs.GetBinContent(vthmin+3));
       hder=TH1F("hder%d" % ip,"derivative",hs.GetNbinsX(),0.,1023.)
       #hs.Rebin(rb)
       #hs.Smooth()
@@ -1528,18 +1530,25 @@ def fithr2(run,tdc,vthmin,vthmax):
       for i in range(1,hs.GetNbinsX()):
         if (hs.GetBinContent(i)-hs.GetBinContent(i+1)>-10):
           hder.SetBinContent(i,hs.GetBinContent(i)-hs.GetBinContent(i+1))
-      hder.Rebin(2)
-      hder.Smooth()
+
+      
+      #hder.Rebin(2)
+      #hder.Smooth()
       hder.GetXaxis().SetRangeUser(vthmin-1,vthmax);
       nmax=0
       xmax=0
-      for i in range(1,hder.GetNbinsX()):
-          if (hder.GetBinContent(i)>nmax):
-              nmax=hder.GetBinContent(i)
-              xmax=hder.GetBinCenter(i)
+   
+      for i in range(hs.GetNbinsX(),0,-1):
+        #print i,hs.GetBinContent(i)
+        if (hs.GetBinContent(i)>0.5):
+          xmax=hs.GetBinCenter(i)
+          nmax=hder.GetBinContent(i)
+          break
+
+      
       scfit.SetParameter(0,nmax);
       scfit.SetParameter(1,xmax);
-      scfit.SetParameter(2,hder.GetRMS()*0.5);
+      scfit.SetParameter(2,5.);
       #scfit.SetParameter(2,5.);
 
 
@@ -1549,6 +1558,8 @@ def fithr2(run,tdc,vthmin,vthmax):
       #hs.GetXaxis().SetRangeUser(vthmin-1,scfit.GetParameter(1)+60);
       #gPad.SetLogy();
       rped=scfit.GetParameter(1)
+      ped[ip]=rped
+      ped[ip]=xmax+2
       c1.cd()
       c1.Draw()
       
@@ -1557,9 +1568,9 @@ def fithr2(run,tdc,vthmin,vthmax):
       c1.Update()
       val1 = raw_input()
 
-      print "heho ",rped,hder.GetMean(),scfit.GetParameter(2)
+      print "heho ",ip,xmax,rped,hder.GetMean(),scfit.GetParameter(1),scfit.GetParameter(2)
       rped=hder.GetMean()
-      
+
       hs.Draw()
       
 
@@ -1609,6 +1620,26 @@ def fithr2(run,tdc,vthmin,vthmax):
   c1.Close()
   fout.write("+--+-----+-----+-----+ \n");
   fout.close()
+  pmean=0
+  np=0
+  for i in range(64):
+      if (ped[i]!=0 and ped[i]<vthmax-10):
+          pmean=pmean+ped[i]
+          np=np+1
+  if (np>32):
+      pmean=pmean/np
+  else:
+      pmean=540
+  delta=[]
+  for i in range(64):
+      if (ped[i]!=0 and ped[i]<vthmax-10):
+          delta.append(int((pmean-ped[i])/1.675))
+      else:
+          delta.append(0)
+  print(np,pmean)
+  print(ped)
+  print(delta)
+  
   return 0
 def fitahr2(run,vthmin,vthmax):
     for i in range(2,8):
