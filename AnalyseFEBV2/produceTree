@@ -1,0 +1,1 @@
+ ./buildTTree -r $1 -d/data/beamdump/raw -O/data/beamdump/root_trees -s$2

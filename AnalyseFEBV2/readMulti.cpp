@@ -73,7 +73,7 @@ void closeTree()
     }
 }
 
-void createTree(std::string dirp)
+void createTree(std::string dirp,std::string pref="Run")
 {
   std::string _directory=dirp;
   if (_fdOut!=NULL)
@@ -96,7 +96,7 @@ void createTree(std::string dirp)
   
   time_t tm= time(NULL);
   strftime(dateStr,20,"SMM_%d%m%y_%H%M%S",localtime(&tm));
-  filename<<_directory<<"/"<<"Run"<<"_"<<_gEvent.run<<".root";
+  filename<<_directory<<"/"<<pref<<"_"<<_gEvent.run<<".root";
   
   _fdOut = new TFile(filename.str().c_str(),"recreate");
   _tree= new TTree("evt","a Tree with SDHCAL frame storage");
@@ -115,9 +115,10 @@ int main(int argc, char *argv[])
 
   std::string dirp="./rawdata";
   std::string diro="./";
+  std::string pats="HV_3_SN_13";
   int32_t runask=0,nmax=5000000;
   char c;
-  while ( (c = getopt(argc, argv, "O:r:d:m:p:hvN")) != -1 ) {
+  while ( (c = getopt(argc, argv, "O:r:d:s:m:p:hvN")) != -1 ) {
     fprintf(stderr,"%c read\n",c);
      
     switch ( c ) {
@@ -141,6 +142,13 @@ int main(int argc, char *argv[])
 	      
       dirp.assign(optarg);
       fprintf(stderr, "Directory %s \n",optarg);
+      break;
+    case 's':
+      /* Chaque fois que l'option -v est utilisée,
+       * on augmente le degré de verbosité. */
+	      
+      pats.assign(optarg);
+      fprintf(stderr, "pattern %s \n",optarg);
       break;
     case 'p':
       /* Chaque fois que l'option -v est utilisée,
@@ -207,7 +215,7 @@ int main(int argc, char *argv[])
   //bs.geometry("gifpp_geom.json");
   std::stringstream spat;
   //int runask=atol(argv[1]);
-  spat<<"*R"<<runask<<"_SMM*.dat";
+  spat<<"*"<<pats<<"*R"<<runask<<"_SMM*.dat";
   //spat<<"SMM*"<<argv[1]<<"*.dat";
   std::vector<std::string> vfile;
   vfile.clear();
@@ -283,7 +291,7 @@ int main(int argc, char *argv[])
 		{
 		  _gEvent.run=f.runNumber();
 
-		  createTree(diro);
+		  createTree(diro,pats);
 		}
 	      if (f.eventNumber()!=lastEvt)
 		{

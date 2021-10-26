@@ -10,7 +10,8 @@
 #define m_tcor(t,tbc0) (t-tbc0)*2.5/256
 
 // Side 0 LR 1 HR
-#define c_side(ch) ((ch>15)?ch%2:(ch+1)%2)
+//#define c_side(ch) ((ch>15)?ch%2:(ch+1)%2)
+#define c_side(ch) ((ch>15)?(ch+1)%2:(ch+1)%2)
 #define c_local_strip(ch) ((ch>15)?((ch-16)/2):16-(ch/2+1))
 #define c_strip(fpga,ch) (fpga*16+c_local_strip(ch))
 #define c_petiroc(ch) ((ch>15)?(ch-16)*2:ch*2)
