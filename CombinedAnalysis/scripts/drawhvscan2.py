@@ -100,3 +100,4 @@ c1.Modified()
 c1.Update()
 val=raw_input()
 c1.SaveAs("%s.png" % val )
+

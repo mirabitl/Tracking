@@ -1,0 +1,2 @@
+. init.sh
+g++ -o buildTTree readMulti.cpp -I $ROOTSYS/include `root-config --libs` -std=c++11
