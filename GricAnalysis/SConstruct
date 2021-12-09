@@ -18,15 +18,12 @@ INCLUDES=['.','./include',"/usr/include","/usr/local/include","/usr/X11R6/includ
 
 #MYSQL and sqlite
 INCLUDES.append("/opt/zdaq/include")
-INCLUDES.append("/opt/lydaq/analysis/include")
-INCLUDES.append("/opt/lydaq/analysis/shmwriter/include")
-INCLUDES.append("/opt/lydaq/drivers/common/include")
 INCLUDES.append("/usr/include/libxml2")
 #python
 INCLUDES.append(commands.getoutput("python -c 'import distutils.sysconfig as conf; print conf.get_python_inc()'"))
 
 #flags
-CPPFLAGS=commands.getoutput("$ROOTSYS/bin/root-config --cflags").split(" ") + ["-g","-DLINUX", "-DREENTRANT" ,"-Dlinux", "-DLITTLE_ENDIAN__", "-Dx86","-DDAQ_VERSION_2","-Wno-deprecated","-std=c++11"] 
+CPPFLAGS=commands.getoutput("$ROOTSYS/bin/root-config --cflags").split(" ") + ["-g","-DLINUX", "-DREENTRANT" ,"-Dlinux", "-DLITTLE_ENDIAN__", "-Dx86","-DDAQ_VERSION_2","-Wno-deprecated","-std=c++14"] 
 if (USE_OPENCV):
 	CPPFLAGS.append(commands.getoutput("pkg-config --cflags opencv").split(" "));
 	CPPFLAGS.append("-DUSE_OPENCV")
@@ -39,10 +36,10 @@ if (USE_CULA):
 ROOT_LIBS=[lib[2:] for lib in filter(lambda x: (x[:2]=="-l"), commands.getoutput("$ROOTSYS/bin/root-config --libs --ldflags ").split(" "))
 ]
 ROOT_LIBS.append('XMLIO')
-ROOT_LIBPATH=[lib[2:] for lib in filter(lambda x: (x[:2]=="-L"), commands.getoutput("$ROOTSYS/bin/root-config --libs  ").split(" "))]
+ROOT_LIBPATH=[lib[2:] for lib in filter(lambda x: (x[:2]=="-L"), commands.getoutput("$ROOTSYS/bin/root-config --evelibs  ").split(" "))]
 # Summary
 
-LIBRARIES=ROOT_LIBS+['pthread','jsoncpp','zdaq','log4cxx','lydaq_pluggins_shmwriter','lydaq_analysis_sdhcal','Gui']
+LIBRARIES=ROOT_LIBS+['pthread','jsoncpp','zdaq','log4cxx']
 
 
 
@@ -64,7 +61,7 @@ env = Environment(CPPPATH=INCLUDES,CPPFLAGS=CPPFLAGS,LINKFLAGS=LDFLAGS, LIBS=LIB
 
 
 #Shared library
-lmrb=env.SharedLibrary("#lib/lmrb",source=['src/jsonGeo.C','src/DCHistogramHandler.C','src/TdcAnalyzer.C','src/tdcrb.cxx','src/RecoAnalyzer.C','src/RbServer.cxx'])
+lmrb=env.SharedLibrary("#lib/lmrb",source=['src/jsonGeo.C','src/DCHistogramHandler.C','src/TdcAnalyzer.C','src/tdcrb.cxx','src/RecoAnalyzer.C','src/SdhcalDifAccess.cc'])
 LIBRARIESPLUG=["lmrb","boost_system"]+LIBRARIES
 LIBRARY_PATHS.append(".")
 
@@ -82,7 +79,7 @@ EXE_LIBS=LIBRARIESPLUG
 
 tdcr=env1.Program("bin/tdcr",source="src/tdcr.cc",LIBPATH=EXE_LIBPATH,LIBS=EXE_LIBS)
 
-rbd=env1.Program("bin/rb_daemon",source="src/RbDaemon.cc",LIBPATH=EXE_LIBPATH,LIBS=EXE_LIBS)
+#rbd=env1.Program("bin/rb_daemon",source="src/RbDaemon.cc",LIBPATH=EXE_LIBPATH,LIBS=EXE_LIBS)
 
 plugbase=env1.SharedLibrary("lib/binaryreader",source=["plugins/binaryreader.cc","plugins/recoTrack.cxx","plugins/HoughLocal.cxx"],LIBPATH=EXE_LIBPATH,LIBS=EXE_LIBS)
 
@@ -92,7 +89,7 @@ plugimad=env1.SharedLibrary("lib/imadreader",source="plugins/imadreader.cc",LIBP
 
 
 
-Default([lmrb,tdcr,rbd,plugbase,plugimad])
+Default([lmrb,tdcr,plugbase,plugimad])
 
 
 

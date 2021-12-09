@@ -28,7 +28,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <getopt.h>
-#include "shmwriterProcessor.hh"
+//#include "shmwriterProcessor.hh"
 #include <arpa/inet.h>
 #include "SdhcalDifAccess.hh"
 
@@ -41,9 +41,9 @@
 using namespace zdaq;
 using namespace sdhcal;
 tdcrb::tdcrb(std::string dire) : _directory(dire),_run(0),_started(false),_fdIn(-1),_totalSize(0),_event(0),_geo(NULL),_t0(2E50),_t(0),_tspill(0)
-			       ,_readoutTotalTime(0),_runType(0),_dacSet(0),_fdOut(-1),_bxId0(0),_nrmax(50000000),_nrfirst(0)
+			       ,_readoutTotalTime(0),_runType(0),_dacSet(0),_fdOut(-1),_bxId0(0),_nrmax(50000000),_nrfirst(0),_vthSet(0)
 {_rh=DCHistogramHandler::instance();
-
+  _processors.clear();
 }
 
 void  tdcrb::registerProcessor(std::string name)
@@ -53,13 +53,13 @@ void  tdcrb::registerProcessor(std::string name)
   void* library = dlopen(s.str().c_str(), RTLD_NOW);
 
 
-  //LOG4CXX_INFO(_logZdaq," Error "<<dlerror()<<" Library open address "<<std::hex<<library<<std::dec);
+  std::cout<<" Error "<<dlerror()<<" Library open address "<<std::hex<<library<<std::dec<<std::endl;
     // Get the loadFilter function, for loading objects
   rbProcessor* (*create)();
-  create = (rbProcessor* (*)())dlsym(library, "loadProcessor");
+  create = (rbProcessor* (*)())dlsym(library, "loadAnalysis");
   //LOG4CXX_INFO(_logZdaq," Error "<<dlerror()<<" file "<<s.str()<<" loads to processor address "<<std::hex<<create<<std::dec);
-  //printf("%s %x \n",dlerror(),(unsigned int) create);
-  // printf("%s lods to %x \n",s.str().c_str(),(unsigned int) create); 
+  //printf("%s %x \n",dlerror(), create);
+  //printf("%s lods to %x \n",s.str().c_str(),(unsigned int) create); 
   //void (*destroy)(Filter*);
   // destroy = (void (*)(Filter*))dlsym(library, "deleteFilter");
     // Get a new filter object
@@ -123,115 +123,6 @@ void tdcrb::geometry(std::string name)
     x->loadParameters(_geo->root());
 }
 
-void tdcrb::pull(std::string name,zdaq::buffer* buf,std::string sourcedir)
-{
-  std::stringstream sc,sd;
-  sc.str(std::string());
-  sd.str(std::string());
-  sc<<sourcedir<<"/closed/"<<name;
-  sd<<sourcedir<<"/"<<name;
-  int fd=::open(sd.str().c_str(),O_RDONLY);
-  if (fd<0) 
-    {
-      printf("%s  Cannot open file %s : return code %d \n",__PRETTY_FUNCTION__,sd.str().c_str(),fd);
-      //LOG4CXX_FATAL(_logShm," Cannot open shm file "<<fname);
-      return ;
-    }
-  int size_buf=::read(fd,buf->ptr(),0x20000);
-  buf->setPayloadSize(size_buf-(3*sizeof(uint32_t)+sizeof(uint64_t)));
-  //printf("%d bytes read %x %d \n",size_buf,cbuf[0],cbuf[1]);
-  ::close(fd);
-  ::unlink(sc.str().c_str());
-  ::unlink(sd.str().c_str());
-}
-
-uint32_t tdcrb::numberOfDataSource() {return 1;}
-
-
-
-void tdcrb::processRawEvent(uint64_t idx)
-{
-}
-void tdcrb::clearShm()
-{
-  std::vector<std::string> vnames;
-  shmwriterProcessor::ls("/dev/shm/monitor",vnames);
-  std::stringstream sc,sd;
-  sc.str(std::string());
-  sd.str(std::string());
-  for (auto name:vnames)
-    {
-      sc<<"/dev/shm/monitor/closed/"<<name;
-      sd<<"/dev/shm/monitor/"<<name;
-      ::unlink(sc.str().c_str());
-      ::unlink(sd.str().c_str());
-
-    }
-}
-void tdcrb::monitor()
-{
-  _started=true;
-  _geo->fillFebs(_run);
-  _geo->fillAlign(_run);
-
-  while (_started)
-    {
-      std::vector<std::string> vnames;
-      shmwriterProcessor::ls("/dev/shm/monitor",vnames);
-      for (auto x:vnames)
-	{std::cout<<x<<std::endl;
-	  //EUDAQ_WARN("Find file "+x);
- //continue;
-	  zdaq::buffer* b=new zdaq::buffer(0x80000);
-	  this->pull(x,b,"/dev/shm/monitor");
-	  if (b->detectorId()==255)
-	    {
-	      uint32_t* buf=(uint32_t*) b->payload();
-	      printf("NEW RUN %d \n",b->dataSourceId());
-	      _run=b->dataSourceId();
-
-
-	      for (int i=0;i<b->payloadSize()/4;i++)
-		{
-		  printf("%d ",buf[i]);
-		}
-
-	      _runType=buf[0];
-	      if (_runType==1)
-		_dacSet=buf[1];
-	      if (_runType==2)
-		_vthSet=buf[1];
-	      printf("\n Run type %d DAC set %d VTH set %d \n",_runType,_dacSet,_vthSet);
-	  //getchar();
-	      //	      _analyzer->jEvent()["runtype"]=_runType;
-	      continue;
-	    }
-	  uint64_t idx_storage=b->eventId(); // usually abcid
-	  std::map<uint64_t,std::vector<zdaq::buffer*> >::iterator it_gtc=_eventMap.find(idx_storage);
-	  if (it_gtc!=_eventMap.end())
-	    it_gtc->second.push_back(b);
-	  else
-	    {
-	      std::vector<zdaq::buffer*> v;
-	      v.clear();
-	      v.push_back(b);
-          
-	      std::pair<uint64_t,std::vector<zdaq::buffer*> > p(idx_storage,v);
-	      _eventMap.insert(p);
-	      it_gtc=_eventMap.find(idx_storage);
-	    }
-	  if (it_gtc->second.size()==this->numberOfDataSource())
-	    {
-	      if (it_gtc->first%100==0)
-		printf("GTC %lu %lu  %d\n",it_gtc->first,it_gtc->second.size(),this->numberOfDataSource());
-	      this->processRawEvent(idx_storage);
-	    }
-	}
-      usleep(50000);	
-  
-    }
-  
-}
 
 void tdcrb::open(std::string filename)
 {
@@ -320,7 +211,8 @@ void tdcrb::read()
 	  _nread++;
 	  if (ier<0 || last==_event)
 	    {
-	      printf("Cannot read Event anymore %d %d %d \n ",ier,last,_event);return;
+	      printf("Cannot read Event anymore %d %d %d \n ",ier,last,_event);
+	      if (_event!=_run) return;
 	    }
 	  if (_nread>(_nrmax+_nrfirst)) return;
 
@@ -375,7 +267,7 @@ void tdcrb::read()
 	      b.uncompress();
 	      memcpy(&_buf[_idx], b.payload(),b.payloadSize());
 	      b.setDetectorId(b.detectorId()&0xFF);
-	      INFO_PRINTF("\t \t %d %x %d %x %d %d %d\n",b.detectorId()&0XFF,b.dataSourceId(),b.eventId(),b.bxId(),b.payloadSize(),bsize,_idx);
+	      DEBUG_PRINTF("\t \t %d %x %d %x %d %d %d\n",b.detectorId()&0XFF,b.dataSourceId(),b.eventId(),b.bxId(),b.payloadSize(),bsize,_idx);
 	      
 	      _bxId=b.bxId();
 	      if (_bxId0==0) _bxId0=_bxId;
@@ -399,11 +291,13 @@ void tdcrb::read()
 		    _dacSet=buf[1];
 		  if (_runType==2)
 		    _vthSet=buf[1];
-		  printf("\n Run type %d DAC set %d VTH set %d \n",_runType,_dacSet,_vthSet);
+		  if (_runType==3)
+		    _dacSet=buf[1];
+		  printf("\n Run type %d GAIN set %d VTH set %d \n",_runType,_dacSet,_vthSet);
 		  // getchar();
 
 		}
-	      if (_detId==140 || detId==160)
+	      if (_detId==140 )
 		{
 		  uint32_t* ibuf=(uint32_t*) b.payload();
 
@@ -423,7 +317,7 @@ void tdcrb::read()
 		      _gtc=b.bxId();
 		      _initialised=true;
 		    }
-		  _theEvent.setCalibrationInfos(_runType,_vthSet);
+		  _theEvent.setCalibrationInfos(_runType,_vthSet,_dacSet);
 
 		  _difId=(b.dataSourceId()>>8)&0xFF;
 		  _theEvent.setFrameCount(_difId,(ntohs(sbuf[0])-16)/20);
@@ -517,6 +411,73 @@ void tdcrb::read()
 		  if (ntohs(sbuf[0])>16) getchar();
 		  #endif
 		}
+	      if (_detId==160)
+		{
+		  uint32_t* ibuf=(uint32_t*) b.payload();
+		  
+		  uint64_t* lbuf=(uint64_t*) b.payload();
+		  uint8_t* bb=(uint8_t*) b.payload();
+
+		  uint8_t* cdb=(uint8_t*) &bb[8];
+  
+		  uint32_t _lastGTC=((uint32_t) cdb[2] <<16)|((uint32_t) cdb[3] <<8)|((uint32_t) cdb[4]);
+		  uint64_t _lastABCID = ((uint64_t) cdb[5] <<48)|((uint64_t) cdb[6] <<32)|((uint64_t) cdb[7] <<24)|((uint64_t) cdb[8] <<16)|((uint64_t) cdb[9] <<8)|((uint64_t) cdb[10]);
+		  uint32_t _lastBCID=((uint32_t) cdb[11] <<16)|((uint32_t) cdb[12] <<8)|((uint32_t) cdb[13]);
+		  //printf("DIF %x last bcid %d \n",b.dataSourceId(),_lastBCID);
+
+
+		  
+		  /*
+		  for (int i=0;i<26;i++)
+		    {
+		      printf("%.2x ",bb[i]);
+		      if (i%16==15) printf("\n");
+		    }
+		  */
+		  uint32_t len=(bb[1]<<8)|(bb[2]);
+		  //printf("%d Length= %d %.2x \n",_difId,len,bb[len-1]);
+		  uint16_t* sbuf=(uint16_t*)&bb[1];
+		  //		    itemp[0]=_event;
+		  //
+		  //  itemp[1]=_lastGTC;
+		  //  ltemp[1]=_lastABCID;
+		  //  itemp[4]= _event;
+		  //  itemp[5]=_adr;
+		  //  itemp[6]=length;
+		  if (!_initialised)
+		    {
+		      //printf("Initialising %d %d %d %ld\n",_run,_event,b.eventId(),b.bxId());
+		      _theEvent.init(_run,_event,b.eventId(),b.bxId());
+		      _gtc=b.eventId();
+		      _initialised=true;
+		    }
+		  _theEvent.setCalibrationInfos(_runType,_vthSet,_dacSet);
+
+		  _difId=(b.dataSourceId()>>8)&0xFF;
+		  _theEvent.setFrameCount(_difId,(len-26)/20);
+		  uint8_t* fb=&bb[26];
+		  uint8_t* efb=_theEvent.frameBuffer();
+
+		  for (int ip=0;ip<_theEvent.frameCount(_difId);ip++)
+		    {
+		      uint32_t iptr=_theEvent.iPtr(_difId,ip);
+		      memcpy(&efb[iptr],&fb[ip*FSIZE],FSIZE);
+		      #undef DEBUGEVENTS
+		      #ifdef DEBUGEVENTS
+		      std::bitset<64> pads;
+		      pads.reset();
+		      for (int ipad=0;ipad<64;ipad++)
+			{
+			  if (_theEvent.pad0(iptr,ipad)) {pads.set(ipad);printf("pad0 %d \n",ipad);} 
+			  if (_theEvent.pad1(iptr,ipad)) {pads.set(ipad);printf("pad1 %d \n",ipad);} 
+			      
+			}
+		      #endif
+		      
+		    }
+		  //getchar();
+		}
+
      
 	    }
 	  if (analyzeIt)

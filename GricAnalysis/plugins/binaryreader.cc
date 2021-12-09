@@ -39,7 +39,7 @@ static TCanvas *TCEdge = NULL;
 static TCanvas *TCHT = NULL;
 static TCanvas *TCCluster = NULL;
 static float z[16] = {0, 54., 0, 0, 76., 10., 0, 0, 32, 0, 0, 0, 0, 0, 0, 0};
-static int32_t togric[16]={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+static int32_t togric[16] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 //using namespace zdaq;
 
 // TTree info
@@ -60,7 +60,7 @@ typedef struct
 
 event_t theEvent;
 
-binaryreader::binaryreader() : _run(0), _started(false), _fdOut(-1), _totalSize(0), _event(0),tEvents_(NULL) {}
+binaryreader::binaryreader() : _run(0), _started(false), _fdOut(-1), _totalSize(0), _event(0), tEvents_(NULL) {}
 void binaryreader::init(uint32_t run)
 {
   _run = run;
@@ -86,7 +86,7 @@ void binaryreader::loadParameters(Json::Value params)
 	  uint32_t plane = ch["num"].asUInt();
 	  std::pair<uint32_t, Json::Value> p(pl, ch);
 	  z[plane] = ch["z"].asFloat();
-	  togric[plane]=pl;
+	  togric[plane] = pl;
 	  _plinfo.insert(p);
 	  printf("%s GRIC %d Plane  %d is at %f cm from floor \n", _plinfo[pl]["name"].asString().c_str(), pl, plane, z[plane]);
 	}
@@ -104,12 +104,12 @@ void binaryreader::processRunHeader(std::vector<uint32_t> header)
 }
 void binaryreader::fillTimeMap(rbEvent *e)
 {
+
   _timeMap.clear();
   std::stringstream sraw;
   sraw << "/gric/";
   TH1 *hfc = _rh->GetTH1(sraw.str() + "FrameCount");
   TH1 *hftm = _rh->GetTH1(sraw.str() + "MaxTime");
-
 
   if (hfc == NULL)
     {
@@ -119,7 +119,10 @@ void binaryreader::fillTimeMap(rbEvent *e)
     }
 
   // Find Maximum time and ramFull
+  uint32_t maxtd[MAXDIF];
+  memset(maxtd, 0, MAXDIF * sizeof(int32_t));
   _maxTime = 0;
+  int maxgr = 0;
   bool _ramFull = false;
   for (int id = 0; id < MAXDIF; id++)
     {
@@ -127,117 +130,143 @@ void binaryreader::fillTimeMap(rbEvent *e)
       _ramFull = _ramFull || (e->frameCount(id) > 126);
       for (int j = 0; j < e->frameCount(id); j++)
 	{
+	  //if (id==0x86) continue;
+	  uint16_t igplane = (id >> 4) & 0xF;
 	  uint32_t idx = e->iPtr(id, j);
+	  uint32_t gti = e->bcid(idx);
 
-	  if (e->bcid(idx) > _maxTime)
-	    _maxTime = e->bcid(idx);
+	  if (gti > _maxTime)
+	    {
+	      _maxTime = gti;
+	      maxgr = id;
+	    }
+	  if (gti > maxtd[id])
+	    {
+	      maxtd[id] = gti;
+	    }
+	}
+      if (e->frameCount(id) && false)
+	printf("GRIC %x max bcid %d \n", id, maxtd[id]);
+    }
+
+  hftm->Fill(_maxTime * 2E-7);
+  // Fill the Map
+
+  int32_t bcidmin = 40;
+  for (int id = 0; id < MAXDIF; id++)
+    {
+
+      if (e->frameCount(id) > 0)
+	{
+#define RAWHIST
+#ifdef RAWHIST
+	  std::stringstream sraw1;
+	  sraw1 << "/gric/ASIC" << std::hex << id << std::dec << "/";
+
+	  TH1 *hp1 = _rh->GetTH1(sraw1.str() + "Pad1");
+	  TH1 *hft = _rh->GetTH1(sraw1.str() + "FrameTime");
+	  TH1 *hfc = _rh->GetTH1(sraw1.str() + "FrameCount");
+	  if (hp1 == NULL)
+	    {
+	      hp1 = _rh->BookTH1(sraw1.str() + "Pad1", 64, 0., 64.);
+	      hft = _rh->BookTH1(sraw1.str() + "FrameTime", 65536, 0., 2.);
+	      hfc = _rh->BookTH1(sraw1.str() + "FrameCount", 65, 0., 65.);
+	    }
+
+#endif
+
+	  uint16_t igplane = (id >> 4) & 0xF;
+	  uint16_t plane = _plinfo[igplane]["num"].asUInt();
+
+	  if (id == 0x222 || id == 0x622)
+	    printf("====> %x %d %d \n", id, igplane, e->frameCount(id));
+	  for (int j = 0; j < e->frameCount(id); j++)
+	    {
+	      uint32_t idx = e->iPtr(id, j);
+	      uint32_t gti = e->bcid(idx);
+	      if (igplane == 22 || igplane == 66)
+		gti = gti * 8;
+
+	      int32_t dd = _maxTime - gti;
+	      if (id == 0x222 || id == 0x622)
+		{
+		  printf("%x %d %d %d \n", id, j, gti, dd);
+		  //dd = e->bcid(idx);
+		}
+	      //std::cout<<"Plane "<<plane<<" DIF "<<id<<" maxTime "<<dd<<std::endl;
+	      // Cleaning
+	      // Remove frame at beginning of windows
+	      if (e->bcid(idx) < bcidmin)
+		continue;
+	      //if (e->frameCount(id)==127 && (dd<10)) continue;
+	      // Remove full ASIC fired
+	      std::bitset<64> bs;
+	      bs.reset();
+	      for (int k = 0; k < 64; k++)
+		if (e->pad0(idx, k) || e->pad1(idx, k))
+		  {
+		    bs.set(k);
+#ifdef RAWHIST
+		    hp1->Fill(k * 1.);
+#endif
+		  }
+#ifdef RAWHIST
+	      hfc->Fill(bs.count() * 1.);
+	      hft->Fill((_maxTime - gti) * 2E-7);
+
+#endif
+	      if (bs.count() > 60)
+		continue;
+
+	      bool found = false;
+	      std::map<uint32_t, std::vector<uint32_t>>::iterator itm = _timeMap.find(gti);
+	      std::map<uint32_t, std::vector<uint32_t>>::iterator itmm = _timeMap.find(gti - 1);
+	      std::map<uint32_t, std::vector<uint32_t>>::iterator itmp = _timeMap.find(gti + 1);
+	      std::map<uint32_t, std::vector<uint32_t>>::iterator itmmm = _timeMap.find(gti - 2);
+	      std::map<uint32_t, std::vector<uint32_t>>::iterator itmpp = _timeMap.find(gti + 2);
+	      found = (itm != _timeMap.end()) || (itmp != _timeMap.end()) || (itmm != _timeMap.end()) || (itmpp != _timeMap.end()) || (itmmm != _timeMap.end());
+	      found = (itm != _timeMap.end()) || (itmp != _timeMap.end()) || (itmm != _timeMap.end());
+	      if (!found)
+		{
+		  std::vector<uint32_t> v;
+		  v.push_back(idx);
+		  std::pair<uint32_t, std::vector<uint32_t>> p(gti, v);
+		  _timeMap.insert(p);
+		}
+	      else
+		{
+		  if (itm != _timeMap.end())
+		    itm->second.push_back(idx);
+		  if (itmm != _timeMap.end())
+		    itmm->second.push_back(idx);
+		  if (itmp != _timeMap.end())
+		    itmp->second.push_back(idx);
+		  /*
+		    if (itmmm != _timeMap.end())
+		    itmmm->second.push_back(idx);
+		    if (itmpp != _timeMap.end())
+		    itmpp->second.push_back(idx);
+		  */
+		}
+	    }
 	}
     }
-  hftm->Fill(_maxTime*2E-7);
-  // Fill the Map
-   int32_t bcidmin=40;
-  for (int id = 0; id < MAXDIF; id++)
-    if (e->frameCount(id))
-      {
-	 #define RAWHIST
-  #ifdef RAWHIST
-  std::stringstream sraw1;
-  sraw1 << "/gric/ASIC" << std::hex << id << std::dec << "/";
-  
-  TH1 *hp1 = _rh->GetTH1(sraw1.str() + "Pad1");
-  TH1 *hft = _rh->GetTH1(sraw1.str() + "FrameTime");
-  TH1 *hfc = _rh->GetTH1(sraw1.str() + "FrameCount");
-  if (hp1 == NULL)
-    {
-      hp1 = _rh->BookTH1(sraw1.str() + "Pad1", 64, 0., 64.);
-      hft = _rh->BookTH1(sraw1.str() + "FrameTime", 65536, 0., 2.);
-      hfc = _rh->BookTH1(sraw1.str() + "FrameCount", 65, 0., 65.);
-    }
-
-
-  #endif
- 
-	uint16_t igplane = (id >> 4) & 0xF;
-	uint16_t plane = _plinfo[igplane]["num"].asUInt();
-			
-	for (int j = 0; j < e->frameCount(id); j++)
-	  {
-	    uint32_t idx = e->iPtr(id, j);
-	    int32_t dd = _maxTime - e->bcid(idx);
-	    // Cleaning 
-	    // Remove frame at beginning of windows
-	    if (e->bcid(idx) < bcidmin)
-	      continue;
-	    //if (e->frameCount(id)==127 && (dd<10)) continue;
-	    // Remove full ASIC fired
-	    std::bitset<64> bs;
-	    bs.reset();
-	    for (int k = 0; k < 64; k++)
-	      if (e->pad0(idx, k) || e->pad1(idx, k))
-		{
-		  bs.set(k);
-		  #ifdef RAWHIST
-		  hp1->Fill(k * 1.);
-		  #endif
-		}
-	    #ifdef RAWHIST
-	    hfc->Fill(bs.count() * 1.);
-	    hft->Fill((_maxTime - e->bcid(idx)) * 2E-7);
-
-	    #endif
-	    if (bs.count() > 60)
-	      continue;
-				
-				
-	    bool found = false;
-	    std::map<uint32_t, std::vector<uint32_t>>::iterator itm = _timeMap.find(e->bcid(idx));
-	    std::map<uint32_t, std::vector<uint32_t>>::iterator itmm = _timeMap.find(e->bcid(idx) - 1);
-	    std::map<uint32_t, std::vector<uint32_t>>::iterator itmp = _timeMap.find(e->bcid(idx) + 1);
-	    std::map<uint32_t, std::vector<uint32_t>>::iterator itmmm = _timeMap.find(e->bcid(idx) - 2);
-	    std::map<uint32_t, std::vector<uint32_t>>::iterator itmpp = _timeMap.find(e->bcid(idx) + 2);
-	    found = (itm != _timeMap.end()) || (itmp != _timeMap.end()) || (itmm != _timeMap.end()) || (itmpp != _timeMap.end()) || (itmmm != _timeMap.end());
-	    found =(itm!=_timeMap.end())||(itmp!=_timeMap.end())||(itmm!=_timeMap.end());
-	    if (!found)
-	      {
-		std::vector<uint32_t> v;
-		v.push_back(idx);
-		std::pair<uint32_t, std::vector<uint32_t>> p(e->bcid(idx), v);
-		_timeMap.insert(p);
-	      }
-	    else
-	      {
-		if (itm != _timeMap.end())
-		  itm->second.push_back(idx);
-		if (itmm != _timeMap.end())
-		  itmm->second.push_back(idx);
-		if (itmp != _timeMap.end())
-		  itmp->second.push_back(idx);
-		/*
-		if (itmmm != _timeMap.end())
-		  itmmm->second.push_back(idx);
-		if (itmpp != _timeMap.end())
-		  itmpp->second.push_back(idx);
-		*/
-	      }
-
-	  }
-      }
 
   // Now select time slice with at least NPLANESMIN hit
   int32_t nplanesmin = _jparams["general"]["minplan"].asUInt();
   std::bitset<16> planes;
   planes.reset();
   uint8_t u[16], v[16], w[16];
-  for (auto it=_timeMap.begin();it!=_timeMap.end();)
+  for (auto it = _timeMap.begin(); it != _timeMap.end();)
     {
-      auto x=(*it);
+      auto x = (*it);
       _bxdif = x.first;
       int32_t dd = _maxTime - x.first;
       // On veut 2 directions sur nplanesmin
-      bool candidate=false;
-      if (x.second.size() > nplanesmin * 2 && dd>20)
+      bool candidate = false;
+      if (x.second.size() > nplanesmin * 2 && dd > 20)
 	{
-	      
+
 	  planes.reset();
 	  memset(u, 0, 16);
 	  memset(v, 0, 16);
@@ -247,9 +276,18 @@ void binaryreader::fillTimeMap(rbEvent *e)
 	      uint32_t ig = y / MAXFRAME / FSIZE;
 	      uint32_t igplane = (ig >> 4) & 0xF;
 	      uint32_t plane = _plinfo[igplane]["num"].asUInt();
-	      u[plane] = u[plane] || ((ig & 0xF) == 2 || (ig & 0xF) == 4);
-	      v[plane] = v[plane] || ((ig & 0xF) == 3 || (ig & 0xF) == 5);
-	      w[plane] = w[plane] || ((ig & 0xF) == 6 || (ig & 0xF) == 7);
+	      if (igplane != 22 && igplane != 66)
+		{
+		  u[plane] = u[plane] || ((ig & 0xF) == 2 || (ig & 0xF) == 4);
+		  v[plane] = v[plane] || ((ig & 0xF) == 3 || (ig & 0xF) == 5);
+		  w[plane] = w[plane] || ((ig & 0xF) == 6 || (ig & 0xF) == 7);
+		}
+	      else
+		{
+		  w[plane] = w[plane] || ((ig & 0xF) == 2 || (ig & 0xF) == 4);
+		  u[plane] = u[plane] || ((ig & 0xF) == 3 || (ig & 0xF) == 5);
+		  v[plane] = v[plane] || ((ig & 0xF) == 6 || (ig & 0xF) == 7);
+		}
 	      planes.set(plane);
 	      //std::cout<<std::hex<<ig<<std::dec<<" IGPL"<<" "<<igplane<<"("<<plane<<")"<<std::endl;
 	    }
@@ -264,7 +302,7 @@ void binaryreader::fillTimeMap(rbEvent *e)
 		planes.set(ip);
 	    }
 	  uint32_t nplanes = planes.count();
-	  candidate= (nplanes >= nplanesmin);
+	  candidate = (nplanes >= nplanesmin);
 	}
       if (candidate)
 	{
@@ -277,32 +315,37 @@ void binaryreader::fillTimeMap(rbEvent *e)
 	}
     }
   // Now Build the planes hits
-  if (_timeMap.size()==0) return;
+  if (_timeMap.size() == 0)
+    return;
   bool display = _jparams["general"]["display"].asUInt() == 1;
-  for (auto x:_timeMap)
+  for (auto x : _timeMap)
     {
       // Build Points list
-      _bxdif=x.first;
+      _bxdif = x.first;
       _vPoints.clear();
       _hplanes.reset();
       for (int i = 1; i <= 8; i++)
 	buildPlaneHits(e, i, x.second);
-      if (_hplanes.count()<nplanesmin) continue;
-      if (e->gtc()<160000) this->fillTracks();
-      uint64_t ltopbs=(_hplanes.to_ulong()&30);
-      uint64_t lbotbs=(_hplanes.to_ulong()&480);
-      _bsplanes= _hplanes.to_ulong();
+      if (_hplanes.count() < nplanesmin)
+	continue;
+      if (e->gtc() < 160000)
+	this->fillTracks();
+      uint64_t ltopbs = (_hplanes.to_ulong() & 30);
+      uint64_t lbotbs = (_hplanes.to_ulong() & 480);
+      _bsplanes = _hplanes.to_ulong();
       std::bitset<16> topbs(ltopbs);
       std::bitset<16> botbs(lbotbs);
-      if (topbs.count()<2) continue;
-      if (botbs.count()<2) continue;
+      if (topbs.count() < 2)
+	continue;
+      if (botbs.count() < 2)
+	continue;
       //std::cout<<_run<<" "<<_event<<" Candidate " <<x.first<<" Pt "<<_vPoints.size()<<" pattern "<<_hplanes<<" "<<topbs <<" "<<botbs<<std::endl;
       this->buildTracks();
       this->kickSearch();
-      if (display) this->drawHits();	  
+      if (display)
+	this->drawHits();
     }
   //getchar();
-
 }
 
 void binaryreader::buildTracks()
@@ -333,7 +376,6 @@ void binaryreader::buildTracks()
     }
   else
     return;
-  
 
   _t_h = 0;
   _b_h = 0;
@@ -348,7 +390,7 @@ void binaryreader::buildTracks()
 	continue;
       if (p.Z() > zmax)
 	continue;
-      
+
       if (top_tk.distance(&p) < dcut || ier != 0)
 	{
 	  //	  std::cout<<x->X()<<" "<<x->Y()<<" "<<x->Z()<<" TOPP_TK"<<x->plan()<<std::endl;
@@ -362,8 +404,8 @@ void binaryreader::buildTracks()
     return;
   top_tk.regression();
   top_tk.calculateChi2();
-  
-  if (top_tk.pchi2() < px2cut &&top_tk.size()>2)
+
+  if (top_tk.pchi2() < px2cut && top_tk.size() > 2)
     {
       //fprintf(stderr,"top Chi2 cut \n");
       top_tk.clear();
@@ -376,7 +418,6 @@ void binaryreader::buildTracks()
       return;
     }
 
-
   if (abs(top_tk.dir().Y()) > thcut)
     {
       //fprintf(stderr,"top  Y thcut \n");
@@ -384,8 +425,6 @@ void binaryreader::buildTracks()
       return;
     }
 
-
-  
   _t_c2 = top_tk.pchi2();
   _t_x[0] = top_tk.orig().X();
   _t_x[1] = top_tk.orig().Y();
@@ -416,7 +455,7 @@ void binaryreader::buildTracks()
     }
   else
     {
-      fprintf(stderr,"bot No shower \n");
+      fprintf(stderr, "bot No shower \n");
       return;
     }
   bot_tk.clear();
@@ -430,7 +469,7 @@ void binaryreader::buildTracks()
 	continue;
       if (p.Z() > zmax)
 	continue;
-      
+
       if (bot_tk.distance(&p) < dcut || ier != 0)
 	{
 	  //std::cout<<x->X()<<" "<<x->Y()<<" "<<x->Z()<<" BOT_TK"<<x->plan()<<std::endl;
@@ -438,7 +477,7 @@ void binaryreader::buildTracks()
 	  _b_h |= (1 << p.plan() - 1);
 	}
     }
-  if (bot_tk.size() >=2)
+  if (bot_tk.size() >= 2)
     {
       bot_tk.regression();
       bot_tk.calculateChi2();
@@ -450,21 +489,19 @@ void binaryreader::buildTracks()
       _b_v[1] = bot_tk.dir().Y();
       _b_v[2] = bot_tk.dir().Z();
       //this->fillTracks();
-
     }
   else
     {
-      fprintf(stderr,"bot Size too small \n");
+      fprintf(stderr, "bot Size too small \n");
       bot_tk.clear();
       return;
     }
   return;
-
 }
 void binaryreader::fillTracks()
 {
   a_tk.clear();
-  float dcut=7.0;
+  float dcut = 7.0;
   ShowerParams isha;
   double ax = 0, bx = 0, ay = 0, by = 0;
   float zmin = z[8] - 1, zmax = z[1] + 1;
@@ -487,7 +524,6 @@ void binaryreader::fillTracks()
     }
   else
     return;
-  
 
   _a_h = 0;
   a_tk.setDir(ax, ay, 1.);
@@ -500,7 +536,7 @@ void binaryreader::fillTracks()
 	continue;
       if (p.Z() > zmax)
 	continue;
-      
+
       if (a_tk.distance(&p) < dcut || ier != 0)
 	{
 	  //std::cout<<x->X()<<" "<<x->Y()<<" "<<x->Z()<<" A_TK"<<x->plan()<<std::endl;
@@ -510,19 +546,109 @@ void binaryreader::fillTracks()
 	  _a_h |= (1 << p.plan() - 1);
 	}
     }
-  if (a_tk.size()<=2)
+  if (a_tk.size() <= 2)
     {
       a_tk.clear();
       return;
     }
-  //std::cout<<a_tk<<std::endl<<"============================="<<std::endl;;
-  if ((_a_h & 1)&& (_a_h &(1<<7)))
+  if (a_tk.plh()[5])
     {
-      recoTrack ta;ta.clear();
+      auto hits = _timeMap[_bxdif];
+      uint32_t plane = 5;
+      std::bitset<64> ub[MAXDIF];
+      std::bitset<64> ub2[MAXDIF];
+      std::bitset<64> ub3[MAXDIF];
+
+      for (int i = 0; i < MAXDIF; i++)
+	{
+	  ub[i].reset();
+	  ub2[i].reset();
+	  ub3[i].reset();
+	}
+      //  std::cout<<"Hit Plane before "<<plane<<" BS "<<_hplanes<<std::endl;
+      uint32_t igplane = 0;
+      for (auto y : hits)
+	{
+	  // Select the plane
+	  uint32_t ig = y / MAXFRAME / FSIZE;
+	  uint16_t igpl = (ig >> 4) & 0xF;
+	  uint16_t pl = _plinfo[igpl]["num"].asUInt();
+	  igplane = igpl;
+	  uint16_t dir = (ig & 0xF);
+	  bool udir = (dir == 2 || dir == 4);
+	  bool vdir = (dir == 3 || dir == 5);
+	  bool wdir = (dir == 6 || dir == 7);
+
+	  int sshift = 0;
+	  if (dir == 4 || dir == 5 || dir == 7)
+	    sshift = 64;
+	  for (int k = 0; k < 64; k++)
+	    {
+	      if (_e->pad0(y, k) || _e->pad1(y, k))
+		ub[ig].set(k);
+	      if (_e->pad0(y, k) && !_e->pad1(y, k))
+		ub2[pl].set(k);
+	      if (_e->pad0(y, k) && _e->pad1(y, k))
+		ub3[pl].set(k);
+	    }
+	}
+      //Use maxhit only
+      for (int pl = 0; pl < MAXDIF; pl++)
+	{
+	  if (ub2[pl].count() != 0)
+	    ub[pl] = ub2[pl];
+	  if (ub3[pl].count() != 0)
+	    ub[pl] = ub3[pl];
+	}
+      // Build plots
+      int plr=0x30;
+      int plt=0x60;
+      for (int gr=2;gr<=7;gr++)
+	{
+	  if (ub[plr+gr].count()!=0)
+	    {
+	      float xr=-1;
+	      for (int k = 0; k < 64; k++)
+		if (xr < 0 && ub[plr+gr][k] == 1)
+		  xr = k;
+	      for (int gt=2;gt<=7;gt++)
+		{
+		  if (ub[plt+gt].count()!=0)
+		    {
+
+		      float xt=-1,xtb=-1;
+		      for (int k = 0; k < 64; k++)
+			if (xt < 0 && ub[plt+gt][k] == 1)
+			  {xt=k;xtb=63-k;}
+		      // Now fill distance
+		      std::stringstream sst,sstb;
+		      sst<<"UR"<<gr<<"T"<<gt;
+		      sstb<<"UR"<<gr<<"TB"<<gt;
+		      TH1* hu5u6=_rh->GetTH1(sst.str());
+		      TH1* hu5u6b=_rh->GetTH1(sstb.str());
+		      if (hu5u6==NULL)
+			{
+			  hu5u6=_rh->BookTH1(sst.str(),256,-128,128);
+			  hu5u6b=_rh->BookTH1(sstb.str(),256,-128,128);
+			}
+		      hu5u6->Fill(xr-xt);
+		      hu5u6b->Fill(xr-xtb);
+				    
+		    }
+		}
+	    }
+		       
+	}
+    }
+  //std::cout<<a_tk<<std::endl<<"============================="<<std::endl;;
+  if ((_a_h & 1) && (_a_h & (1 << 7)))
+    {
+      recoTrack ta;
+      ta.clear();
       for (auto x = a_tk.points().begin(); x != a_tk.points().end(); x++)
 	{
 	  recoPoint *p = (*x);
-	  if (p->plan() !=1 && p->plan()!=8)
+	  if (p->plan() != 1 && p->plan() != 8)
 	    continue;
 	  //std::cout<<p->X()<<" "<<p->Y()<<" "<<p->Z()<<" TP_TK"<<p->plan()<<std::endl;
 	  //fflush(stdout);
@@ -540,36 +666,34 @@ void binaryreader::fillTracks()
 	      if (x->plan() != ip)
 		continue;
 	      std::stringstream splane;
-	      splane << "/gric/ALG" << ip << "_G"<<togric[ip]<<"/";
+	      splane << "/gric/ALG" << ip << "_G" << togric[ip] << "/";
 
 	      TH1 *hdistx = _rh->GetTH1(splane.str() + "DX");
 	      TH1 *hdisty = _rh->GetTH1(splane.str() + "DY");
 	      if (hdistx == NULL)
 		{
-		  hdistx = _rh->BookTH1(splane.str() + "DX", 100, -10., 10.);
-		  hdisty = _rh->BookTH1(splane.str() + "DY", 100, -10., 10.);
+		  hdistx = _rh->BookTH1(splane.str() + "DX", 1000, -100., 100.);
+		  hdisty = _rh->BookTH1(splane.str() + "DY", 1000, -100., 100.);
 		}
 
 	      ROOT::Math::XYZPoint &p = (*x);
 	      ROOT::Math::XYZVector d = p - pe;
 	      float dx = d.X();
 	      float dy = d.Y();
-	  //std::cout<<p1.X()<<" "<<p1.Y()<<" "<<p1.Z()<<std::endl;
+	      //std::cout<<p1.X()<<" "<<p1.Y()<<" "<<p1.Z()<<std::endl;
 	      double dist = sqrt(d.Mag2());
-	  //std::cout<<dist<<" "<<hdistx->GetEntries()<<std::endl;
+	      //std::cout<<dist<<" "<<hdistx->GetEntries()<<std::endl;
 	      hdistx->Fill(dx);
 	      //std::cout<<dx<<" "<<dy<<" "<<hdistx->GetEntries()<<std::endl;
 	      hdisty->Fill(dy);
+	    }
 	}
-
-	}
-
     }
   for (int ip = 1; ip <= 8; ip++)
     {
       if (z[ip] == 0)
 	continue;
-      uint16_t bs=0;
+      uint16_t bs = 0;
       recoTrack tp;
       tp.clear();
       // for (auto x = a_tk.points().begin(); x != a_tk.points().end(); x++)
@@ -591,26 +715,25 @@ void binaryreader::fillTracks()
 	continue;
       tp.regression();
       tp.calculateChi2();
-      
 
       if (tp.pchi2() < 0.01)
 	continue;
       /*
-      if (ip == 1 && !(tp.planUsed(2) && tp.planUsed(3)))
+	if (ip == 1 && !(tp.planUsed(2) && tp.planUsed(3)))
 	continue;
-      if (ip == 1 && !(tp.planUsed(2) && tp.planUsed(8)))
+	if (ip == 1 && !(tp.planUsed(2) && tp.planUsed(8)))
 	continue;
 
-      if (ip == 8 && !(tp.planUsed(6) && tp.planUsed(7)))
+	if (ip == 8 && !(tp.planUsed(6) && tp.planUsed(7)))
 	continue;
-      if (ip == 8 && !(tp.planUsed(6) && tp.planUsed(1)))
+	if (ip == 8 && !(tp.planUsed(6) && tp.planUsed(1)))
 	continue;
-      if (ip > 1 && ip < 8 && !(tp.planUsed(ip - 1) && tp.planUsed(ip + 1)))
+	if (ip > 1 && ip < 8 && !(tp.planUsed(ip - 1) && tp.planUsed(ip + 1)))
 	continue;
-      if (ip > 1 && ip < 8 && !(tp.planUsed(1) && tp.planUsed(8)))
+	if (ip > 1 && ip < 8 && !(tp.planUsed(1) && tp.planUsed(8)))
 	continue;
       */
-      if (tp.size()<4)
+      if (tp.size() < 4)
 	continue;
       ROOT::Math::XYZPoint pe = tp.extrapolate(z[ip]);
 
@@ -635,9 +758,8 @@ void binaryreader::fillTracks()
       //std::cout<<"PLAN "<<ip<<" "<<tp<<std::endl;
       //getchar();
 
-
       std::stringstream splane;
-      splane << "/gric/EFF" << ip << "_G"<<togric[ip]<<"/";
+      splane << "/gric/EFF" << ip << "_G" << togric[ip] << "/";
       TH2 *hext = _rh->GetTH2(splane.str() + "XYext");
       TH2 *hfop = _rh->GetTH2(splane.str() + "XYfound");
 
@@ -651,8 +773,8 @@ void binaryreader::fillTracks()
 	  hpc2 = _rh->BookTH1(splane.str() + "PChi2", 1000, 0., 1.);
 	  hax = _rh->BookTH1(splane.str() + "AX", 1000, -1., 1.);
 	  hay = _rh->BookTH1(splane.str() + "AY", 1000, -1., 1.);
-	  hdistx = _rh->BookTH1(splane.str() + "DX", 100, -10., 10.);
-	  hdisty = _rh->BookTH1(splane.str() + "DY", 100, -10., 10.);
+	  hdistx = _rh->BookTH1(splane.str() + "DX", 1000, -100., 100.);
+	  hdisty = _rh->BookTH1(splane.str() + "DY", 1000, -100., 100.);
 	  hext = _rh->BookTH2(splane.str() + "XYext", 32, -30., 30., 32, 0., 60.);
 	  hfop = _rh->BookTH2(splane.str() + "XYfound", 32, -30., 30., 32, 0., 60.);
 	}
@@ -684,18 +806,19 @@ void binaryreader::fillTracks()
 	    }
 	}
     }
-
 }
 void binaryreader::kickSearch()
 {
-  if (tEvents_==NULL)
+  if (tEvents_ == NULL)
     {
       std::stringstream ss;
-      ss<<"/tmp/tree"<<_run<<"_"<<_gtc<<".root";
-      this->createTrees(ss.str());			    
+      ss << "/tmp/tree" << _run << "_" << _gtc << ".root";
+      this->createTrees(ss.str());
     }
-  if (top_tk.size()<2) return;
-  if (bot_tk.size()<2) return;
+  if (top_tk.size() < 2)
+    return;
+  if (bot_tk.size() < 2)
+    return;
   float thetacut = _jparams["general"]["thetacut"].asFloat();
   float pcut = _jparams["general"]["pcut"].asFloat();
 
@@ -743,20 +866,18 @@ void binaryreader::kickSearch()
 	prob = 1E-20;
       //printf("Distance %f %f %f %f \n", rd3, prob, th, thetacut);
     }
-  _rd3=rd3;
-  _probd3=prob;
-  if (tEvents_!=NULL)
+  _rd3 = rd3;
+  _probd3 = prob;
+  if (tEvents_ != NULL)
     {
       treeFile_->cd();
-                
+
       tEvents_->Fill();
     }
-
-
 }
 void binaryreader::drawHits()
 {
-  
+
   TH2 *hzx = _rh->GetTH2("ZX");
   TH2 *hzy = _rh->GetTH2("ZY");
   if (hzx == NULL)
@@ -767,11 +888,11 @@ void binaryreader::drawHits()
   hzx->Reset();
   hzy->Reset();
 
-  for (auto x:_vPoints)
+  for (auto x : _vPoints)
     {
-      hzx->Fill(x.Z(),x.X());
-      hzy->Fill(x.Z(),x.Y());
-      fprintf(stderr,"%d %d %d %f %f %f \n",_run,_event,_bxdif,x.Z(),x.X(),x.Y());
+      hzx->Fill(x.Z(), x.X());
+      hzy->Fill(x.Z(), x.Y());
+      fprintf(stderr, "%d %d %d %f %f %f \n", _run, _event, _bxdif, x.Z(), x.X(), x.Y());
     }
   if (TCHits == NULL)
     {
@@ -784,8 +905,10 @@ void binaryreader::drawHits()
   hzx->SetMarkerStyle(25);
   hzx->SetMarkerColor(kRed);
   hzx->Draw("P");
-  if (top_tk.size()>1) top_tk.linex()->Draw("SAME");
-  if (bot_tk.size()>1) bot_tk.linex()->Draw("SAME");
+  if (top_tk.size() > 1)
+    top_tk.linex()->Draw("SAME");
+  if (bot_tk.size() > 1)
+    bot_tk.linex()->Draw("SAME");
   TCHits->Modified();
   TCHits->Draw();
   TCHits->Update();
@@ -793,29 +916,33 @@ void binaryreader::drawHits()
   hzy->SetMarkerStyle(22);
   hzy->SetMarkerColor(kGreen);
   hzy->Draw("P");
-  if (top_tk.size()>1) top_tk.liney()->Draw("SAME");
-  if (bot_tk.size()>1) bot_tk.liney()->Draw("SAME");
+  if (top_tk.size() > 1)
+    top_tk.liney()->Draw("SAME");
+  if (bot_tk.size() > 1)
+    bot_tk.liney()->Draw("SAME");
   TCHits->Modified();
   TCHits->Draw();
   TCHits->Update();
   ::usleep(100);
   TCHits->Update();
   getchar();
-    
-
-  
 }
 void binaryreader::processEvent(rbEvent *e)
 {
+  _e=e;
   uint8_t u[16], v[16], w[16];
   if (!_started)
     return;
-  printf("BR => %d %d %d %d \n",e->run(),e->event(),e->gtc(),e->seuil());
   _event = e->gtc();
+  if (_event % 100 == 0)
+    printf("BR => %d %d %d %d \n", e->run(), e->event(), e->gtc(), e->seuil());
+
   _run = e->run();
-  _gtc=e->gtc();
-  if (e->seuil()!=0)
+  _gtc = e->gtc();
+  if (e->seuil() != 0)
     this->scurveAnalysis(e);
+  else if (e->gain() != 0)
+    this->gaincurveAnalysis(e);
   else
     this->fillTimeMap(e);
   return;
@@ -883,7 +1010,7 @@ void binaryreader::processEvent(rbEvent *e)
 	uint16_t plane = _plinfo[igplane]["num"].asUInt();
 	plh.set(plane, 1);
 	hfc->Fill(id * 1., e->frameCount(id));
-	//printf("GRIC %x %d frames \n",id,e->frameCount(id));
+	printf("GRIC %x %d frames \n", id, e->frameCount(id));
 	std::stringstream sraw1;
 	sraw1 << "/gric/ASIC" << std::hex << id << std::dec << "/";
 
@@ -1028,9 +1155,18 @@ void binaryreader::processEvent(rbEvent *e)
 	      uint32_t ig = y / MAXFRAME / FSIZE;
 	      uint32_t igplane = (ig >> 4) & 0xF;
 	      uint32_t plane = _plinfo[igplane]["num"].asUInt();
-	      u[plane] = u[plane] || ((ig & 0xF) == 2 || (ig & 0xF) == 4);
-	      v[plane] = v[plane] || ((ig & 0xF) == 3 || (ig & 0xF) == 5);
-	      w[plane] = w[plane] || ((ig & 0xF) == 6 || (ig & 0xF) == 7);
+	      if (igplane != 22 && igplane != 66)
+		{
+		  u[plane] = u[plane] || ((ig & 0xF) == 2 || (ig & 0xF) == 4);
+		  v[plane] = v[plane] || ((ig & 0xF) == 3 || (ig & 0xF) == 5);
+		  w[plane] = w[plane] || ((ig & 0xF) == 6 || (ig & 0xF) == 7);
+		}
+	      else
+		{
+		  w[plane] = w[plane] || ((ig & 0xF) == 2 || (ig & 0xF) == 4);
+		  u[plane] = u[plane] || ((ig & 0xF) == 3 || (ig & 0xF) == 5);
+		  v[plane] = v[plane] || ((ig & 0xF) == 6 || (ig & 0xF) == 7);
+		}
 	      planes.set(plane);
 	      //std::cout<<std::hex<<ig<<std::dec<<" IGPL"<<" "<<igplane<<"("<<plane<<")"<<std::endl;
 	    }
@@ -1712,6 +1848,13 @@ void binaryreader::processEvent(rbEvent *e)
 	      bool udir = ((ig & 0xF) == 2 || (ig & 0xF) == 4);
 	      bool vdir = ((ig & 0xF) == 3 || (ig & 0xF) == 5);
 	      bool wdir = ((ig & 0xF) == 6 || (ig & 0xF) == 7);
+	      if (plane == 22 || plane == 66)
+		{
+		  wdir = ((ig & 0xF) == 2 || (ig & 0xF) == 4);
+		  udir = ((ig & 0xF) == 3 || (ig & 0xF) == 5);
+		  vdir = ((ig & 0xF) == 6 || (ig & 0xF) == 7);
+		}
+
 	      int sshift = 0;
 	      if (cpos == 4 || cpos == 5 || cpos == 7)
 		sshift = 64;
@@ -1806,7 +1949,7 @@ void binaryreader::buildPlaneHits(rbEvent *e, uint32_t plane, std::vector<uint32
       uint32_t ig = y / MAXFRAME / FSIZE;
       uint16_t igpl = (ig >> 4) & 0xF;
       uint16_t pl = _plinfo[igpl]["num"].asUInt();
-
+      bool v0=(pl!=6 && pl!=7);
       if (pl != plane)
 	continue;
       igplane = igpl;
@@ -1814,37 +1957,44 @@ void binaryreader::buildPlaneHits(rbEvent *e, uint32_t plane, std::vector<uint32
       bool udir = (dir == 2 || dir == 4);
       bool vdir = (dir == 3 || dir == 5);
       bool wdir = (dir == 6 || dir == 7);
+      if (!v0)
+	{
+	  udir = ((ig & 0xF) == 3 || (ig & 0xF) == 7);
+	  vdir = ((ig & 0xF) == 6 || (ig & 0xF) == 4);
+	  wdir = ((ig & 0xF) == 2 || (ig & 0xF) == 5);
+	}
+
       int sshift = 0;
-      if (dir == 4 || dir == 5 || dir == 7)
-	sshift = 64;
+      if (v0)
+	if (dir == 4 || dir == 5 || dir == 7)
+	  sshift = 64;
+      if (!v0)
+	if (dir == 7 || dir == 4 || dir == 5)
+	  sshift = 64;
+      
       for (int k = 0; k < 64; k++)
 	{
+	  
+	  int ibs=k+sshift;
+	  if (!v0) ibs=63-k+sshift;
 	  if (e->pad0(y, k) || e->pad1(y, k))
 	    {
-	      if (udir)
-		ub.set(k + sshift);
-	      if (vdir)
-		vb.set(k + sshift);
-	      if (wdir)
-		wb.set(k + sshift);
+	      if (udir)	ub.set(ibs);
+	      if (vdir)	vb.set(ibs);
+	      if (wdir)	wb.set(ibs);
 	    }
 	  if (e->pad0(y, k) && !e->pad1(y, k))
 	    {
-	      if (udir)
-		ub2.set(k + sshift);
-	      if (vdir)
-		vb2.set(k + sshift);
-	      if (wdir)
-		wb2.set(k + sshift);
+	      if (udir)	ub2.set(ibs);
+	      if (vdir)	vb2.set(ibs);
+	      if (wdir)	wb2.set(ibs);
 	    }
 	  if (e->pad0(y, k) && e->pad1(y, k))
 	    {
-	      if (udir)
-		ub3.set(k + sshift);
-	      if (vdir)
-		vb3.set(k + sshift);
-	      if (wdir)
-		wb3.set(k + sshift);
+	      if (udir)	ub3.set(ibs);
+	      if (vdir)	vb3.set(ibs);
+	      if (wdir)	wb3.set(ibs);
+
 	    }
 	}
     }
@@ -2166,7 +2316,8 @@ void binaryreader::buildPlaneHits(rbEvent *e, uint32_t plane, std::vector<uint32
 	      //printf("%d %f %f %f \n",plane,Xg,Yg,Sg);
 	      recoPoint pg(Xg - _plinfo[igplane]["x"].asFloat(), Yg - _plinfo[igplane]["y"].asFloat(), z[plane], plane);
 	      //std::cout<<" UVW "<<plane<<" "<<Xg-_plinfo[igplane]["x"].asFloat()<<" "<<Yg-_plinfo[igplane]["y"].asFloat()<<" "<<z[plane]<<std::endl;
-	      _vPoints.push_back(pg);
+	      if (igplane != 22 && igplane != 66)
+		_vPoints.push_back(pg);
 	      hzx->Fill(z[plane], Xg);
 	      hzy->Fill(z[plane], Yg);
 
@@ -2185,7 +2336,8 @@ void binaryreader::buildPlaneHits(rbEvent *e, uint32_t plane, std::vector<uint32
 	    //recoPoint pg(Xuv,Yuv,z[plane]);
 	    recoPoint pg(Xuv - _plinfo[igplane]["x"].asFloat(), Yuv - _plinfo[igplane]["y"].asFloat(), z[plane], plane);
 	    //std::cout<<" UV "<<plane<<" "<<Xuv-_plinfo[igplane]["x"].asFloat()<<" "<<Yuv-_plinfo[igplane]["y"].asFloat()<<" "<<z[plane]<<std::endl;
-	    _vPoints.push_back(pg);
+	    if (igplane != 22 && igplane != 66)
+	      _vPoints.push_back(pg);
 	    hzx->Fill(z[plane], Xuv);
 	    hzy->Fill(z[plane], Yuv);
 
@@ -2211,7 +2363,8 @@ void binaryreader::buildPlaneHits(rbEvent *e, uint32_t plane, std::vector<uint32
 	    //recoPoint pg(Xuw,Yuw,z[plane]);
 	    recoPoint pg(Xuw - _plinfo[igplane]["x"].asFloat(), Yuw - _plinfo[igplane]["y"].asFloat(), z[plane], plane);
 	    //std::cout<<" UW "<<plane<<" "<<Xuw-_plinfo[igplane]["x"].asFloat()<<" "<<Yuw-_plinfo[igplane]["y"].asFloat()<<" "<<z[plane]<<std::endl;
-	    _vPoints.push_back(pg);
+	    if (igplane != 22 && igplane != 66)
+	      _vPoints.push_back(pg);
 	    hzx->Fill(z[plane], Xuw);
 	    hzy->Fill(z[plane], Yuw);
 
@@ -2232,7 +2385,8 @@ void binaryreader::buildPlaneHits(rbEvent *e, uint32_t plane, std::vector<uint32
 	    //recoPoint pg(Xvw,Yvw,z[plane]);
 	    recoPoint pg(Xvw - _plinfo[igplane]["x"].asFloat(), Yvw - _plinfo[igplane]["y"].asFloat(), z[plane], plane);
 	    //std::cout<<" VW "<<plane<<" "<<Xvw-_plinfo[igplane]["x"].asFloat()<<" "<<Yvw-_plinfo[igplane]["y"].asFloat()<<" "<<z[plane]<<std::endl;
-	    _vPoints.push_back(pg);
+	    if (igplane != 22 && igplane != 66)
+	      _vPoints.push_back(pg);
 	    hzx->Fill(z[plane], Xvw);
 	    hzy->Fill(z[plane], Yvw);
 
@@ -2289,6 +2443,13 @@ void binaryreader::buildPosition(rbEvent *e, uint32_t plane, uint32_t ddmax, boo
 	  bool udir = (dir == 2 || dir == 4);
 	  bool vdir = (dir == 3 || dir == 5);
 	  bool wdir = (dir == 6 || dir == 7);
+	  if (ig == 22 || ig == 66)
+	    {
+	      wdir = ((ig & 0xF) == 2 || (ig & 0xF) == 4);
+	      udir = ((ig & 0xF) == 3 || (ig & 0xF) == 5);
+	      vdir = ((ig & 0xF) == 6 || (ig & 0xF) == 7);
+	    }
+
 	  int sshift = 0;
 	  if (dir == 4 || dir == 5 || dir == 7)
 	    sshift = 64;
@@ -2655,14 +2816,14 @@ void binaryreader::createTrees(std::string s)
 
   tEvents_ = new TTree("events", "Events");
   tEvents_->SetAutoSave(50000000);
-  
+
   tEvents_->Branch("bcid", &_bxdif, "bcid/l");
   tEvents_->Branch("run", &_run, "run/i");
   tEvents_->Branch("event", &_event, "event/i ");
   tEvents_->Branch("bsplan", &_bsplanes, "bsplan/l");
-  tEvents_->Branch("top_hit", &_t_h,"top_hit/b");
-  tEvents_->Branch("bot_hit", &_b_h,"bot_hit/b");
-  tEvents_->Branch("all_hit", &_a_h,"bot_hit/b");
+  tEvents_->Branch("top_hit", &_t_h, "top_hit/b");
+  tEvents_->Branch("bot_hit", &_b_h, "bot_hit/b");
+  tEvents_->Branch("all_hit", &_a_h, "bot_hit/b");
   tEvents_->Branch("t_x", &_t_x, "t_x[3]/D");
   tEvents_->Branch("t_v", &_t_v, "t_v[3]/D");
   tEvents_->Branch("b_x", &_t_x, "b_x[3]/D");
@@ -2678,13 +2839,12 @@ void binaryreader::createTrees(std::string s)
   tEvents_->Branch("zcross", &_zcross, "zcross/D");
   tEvents_->Branch("rd3", &_rd3, "rd3/D");
   tEvents_->Branch("probd3", &_probd3, "probd3/D");
-  
 
   std::cout << " create Trees" << std::endl;
 }
 void binaryreader::closeTrees()
 {
-  if (tEvents_!=0)
+  if (tEvents_ != 0)
     {
       treeFile_->cd();
       tEvents_->Write();
@@ -2695,27 +2855,39 @@ void binaryreader::closeTrees()
 void binaryreader::scurveAnalysis(rbEvent *e)
 {
 
-  if (e->seuil()==0) return;
+  if (e->seuil() == 0)
+    return;
   //std::cout<<"Event "<<_event<<" GTC"<<_gtc<<" Vth set "<<e->seuil()<<std::endl;
   //fflush(stdout);
   for (int id = 0; id < MAXDIF; id++)
     if (e->frameCount(id))
       {
 	std::stringstream sraw1;
-	sraw1 << "/gric/SCURVE" << std::hex << id << std::dec << "/";
-	
+	std::stringstream sraw2;
+	std::stringstream sraw3;
+	sraw1 << "/gric/B01SCURVE" << std::hex << id << std::dec << "/";
+	sraw2 << "/gric/B10SCURVE" << std::hex << id << std::dec << "/";
+	sraw3 << "/gric/B11SCURVE" << std::hex << id << std::dec << "/";
+
 	TH1 *hp1 = _rh->GetTH1(sraw1.str() + "Padc1");
 	if (hp1 == NULL)
 	  {
-	    for (int i=0;i<64;i++)
+	    for (int i = 0; i < 64; i++)
 	      {
 		std::stringstream srpc("");
-		srpc<<sraw1.str()<<"Padc"<<i;
-		TH1* hpc = _rh->BookTH1(srpc.str(),1024,0.,1024);
-
+		srpc << sraw1.str() << "Padc" << i;
+		TH1 *hpc = _rh->BookTH1(srpc.str(), 1024, 0., 1024);
+		srpc.str(std::string());
+		srpc.clear();
+		srpc << sraw2.str() << "Padc" << i;
+		TH1 *hpc2 = _rh->BookTH1(srpc.str(), 1024, 0., 1024);
+		srpc.str(std::string());
+		srpc.clear();
+		srpc << sraw3.str() << "Padc" << i;
+		TH1 *hpc3 = _rh->BookTH1(srpc.str(), 1024, 0., 1024);
 	      }
 	  }
-
+	uint64_t lb0 = 0, lb1 = 0, lb2 = 0;
 	for (int j = 0; j < e->frameCount(id); j++)
 	  {
 	    uint32_t idx = e->iPtr(id, j);
@@ -2724,33 +2896,95 @@ void binaryreader::scurveAnalysis(rbEvent *e)
 	      continue;
 	    for (int k = 0; k < 64; k++)
 	      {
-		if (e->pad0(idx, k) || e->pad1(idx, k))
+		if ((e->pad0(idx, k) && !e->pad1(idx, k)) || (e->pad0(idx, k) && e->pad1(idx, k)))
 		  {
 		    std::stringstream srpc("");
-		    srpc<<sraw1.str()<<"Padc"<<k;
+		    srpc << sraw1.str() << "Padc" << k;
 
-		    TH1* hpc= _rh->GetTH1(srpc.str());
+		    TH1 *hpc = _rh->GetTH1(srpc.str());
 		    //std::cout<<srpc.str()<<std::endl;
-		    hpc->Fill(e->seuil()*1.);
+		    hpc->Fill(e->seuil() * 1.);
+		    lb0 |= (1 << k);
+		  }
+		if ((e->pad1(idx, k) && !e->pad0(idx, k)) || (e->pad0(idx, k) && e->pad1(idx, k)))
+		  {
+		    std::stringstream srpc("");
+		    srpc << sraw2.str() << "Padc" << k;
 
+		    TH1 *hpc = _rh->GetTH1(srpc.str());
+		    //std::cout<<srpc.str()<<std::endl;
+		    hpc->Fill(e->seuil() * 1.);
+		    lb1 |= (1 << k);
+		  }
+		if (e->pad0(idx, k) && e->pad1(idx, k))
+		  {
+		    std::stringstream srpc("");
+		    srpc << sraw3.str() << "Padc" << k;
+
+		    TH1 *hpc = _rh->GetTH1(srpc.str());
+		    //std::cout<<srpc.str()<<std::endl;
+		    hpc->Fill(e->seuil() * 1.);
+		    lb2 |= (1 << k);
 		  }
 	      }
 	  }
       }
+}
+void binaryreader::gaincurveAnalysis(rbEvent *e)
+{
 
+  if (e->gain() == 0)
+    return;
+  //std::cout<<"Event "<<_event<<" GTC"<<_gtc<<" Vth set "<<e->seuil()<<std::endl;
+  //fflush(stdout);
+  for (int id = 0; id < MAXDIF; id++)
+    if (e->frameCount(id))
+      {
+	std::stringstream sraw1;
+	sraw1 << "/gric/GCURVE" << std::hex << id << std::dec << "/";
+	TH1 *hp1 = _rh->GetTH1(sraw1.str() + "Padc1");
+	if (hp1 == NULL)
+	  {
+	    for (int i = 0; i < 64; i++)
+	      {
+		std::stringstream srpc("");
+		srpc << sraw1.str() << "Padc" << i;
+		TH1 *hpc = _rh->BookTH1(srpc.str(), 255, 0., 255);
+	      }
+	  }
+	for (int j = 0; j < e->frameCount(id); j++)
+	  {
+	    uint32_t idx = e->iPtr(id, j);
+
+	    if (e->bcid(idx) < 4)
+	      continue;
+	    for (int k = 0; k < 64; k++)
+	      {
+		if ((e->pad0(idx, k) || e->pad1(idx, k)))
+		  {
+		    std::stringstream srpc("");
+		    srpc << sraw1.str() << "Padc" << k;
+
+		    TH1 *hpc = _rh->GetTH1(srpc.str());
+		    //std::cout<<srpc.str()<<std::endl;
+		    hpc->Fill(e->gain() * 1.);
+		  }
+	      }
+	  }
+      }
 }
 
 extern "C"
 {
-  // loadDHCALAnalyzer function creates new LowPassDHCALAnalyzer object and returns it.
-  rbProcessor *loadProcessor(void)
+  // loadDHCALAnalyzer function creates new LowPassDHCALAnalyzer object and returns it
+  rbProcessor *loadAnalysis(void)
   {
     return (new binaryreader);
   }
   // The deleteDHCALAnalyzer function deletes the LowPassDHCALAnalyzer that is passed
   // to it.  This isn't a very safe function, since there's no
   // way to ensure that the object provided is indeed a LowPassDHCALAnalyzer.
-  void deleteProcessor(rbProcessor *obj)
+  void deleteAnalysis(rbProcessor *obj)
   {
     delete obj;
   }

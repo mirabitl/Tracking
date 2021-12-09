@@ -2,17 +2,17 @@
     "files":
     [
 
-	[1617,"/home/acqilc/PULSALYS/SMM_091120_131605_B0_R1617.dat"]
+	[1005,"/data/NAS/GRIC2021/SMM_231121_155754_B0_R1005.dat"]
 
     ],
     "general":
     {
-	"directory":"/opt/TdcAnalysis/Histos/InTime",
+	"directory":"./",
 	"noise":0,
-	"display":0,
+	"display":1,
 	"trigger":0,
 	"coinc":1,
-	"minplan":3,
+	"minplan":4,
 	"dcut":5,
 	"minbot":2,
 	"pcut":0.1,
@@ -26,8 +26,8 @@
 	{"num":3,"name":"ch7_p3_hv2","id":5,"z":231.0,"x":0.38,"y":-0.05},
 	{"num":4,"name":"ch5_p4_hv3","id":4,"z":209.0,"x":-1.78,"y":-0.09},
 	{"num":5,"name":"ch1_p5_hv4","id":3,"z":126.0,"x":-0.05,"y":0.24},
-	{"num":6,"name":"ch2_p6_hv5","id":6,"z":104.0,"x":-0.05,"y":0.39},
-	{"num":7,"name":"ch3_p7_hv6","id":2,"z":82.0,"x":0.11,"y":0.12},
+	{"num":6,"name":"ch2_p6_hv5","id":6,"z":104.0,"x":-0.05,"y":0.0},
+	{"num":7,"name":"ch3_p7_hv6","id":2,"z":82.0,"x":-0.7,"y":5.85},
 	{"num":8,"name":"ch4_p8_hv7","id":1,"z":60.0,"x":0.0,"y":0.0}
     ]
     

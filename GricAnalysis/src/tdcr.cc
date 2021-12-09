@@ -155,7 +155,10 @@ int main(int argc, char **argv )
   
   //bs.geometry("gifpp_geom.json");
   if (prn.compare("NONE")!=0)
+    {
+      fprintf(stderr,"Registering %s \n",prn.c_str());
     bs.registerProcessor(prn);
+    }
   std::cout<<geom_file<<" " <<runask<<std::endl;
   bs.geometry(geom_file);
   bs.setNFirst(nfirst);

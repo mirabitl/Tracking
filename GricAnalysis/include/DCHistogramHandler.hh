@@ -1,6 +1,7 @@
 #ifndef _DCHISTOGRAMHANDLER_H
 #define _DCHISTOGRAMHANDLER_H
 #include <map>
+#include <string>
 #include <TCanvas.h>
 #include <TFile.h>
 #include <TH1F.h>
@@ -14,6 +15,7 @@
 #include "AbsTree.hh"
 #include <semaphore.h>
 #include <TBufferJSON.h>
+
 /** 
 \class DCHistogramHandler
   \author  L.Mirabito 

@@ -1429,7 +1429,7 @@ def processAllDCS(fdb,dbo,diro=".",proc=True,store=True,draw=False,canvas=None,f
 def approx(v,v1,v2,a1,a2):
   return a1+(v-v1)*(a2-a1)*1./(v2-v1)
 
-def fithr2(run,tdc,vthmin,vthmax):
+def fithr2(run,tdc,vthmin,vthmax,verbose=False):
   outd= "output/run%d/gric%d" % (run,tdc)
   os.system("mkdir -p "+outd)   
   rb=1
@@ -1501,7 +1501,8 @@ def fithr2(run,tdc,vthmin,vthmax):
   #c1.SaveAs("Run%d_AllStrip%d.root" % (run,tdc,asic));
   c1.SaveAs(outd+"/AllStrip.pdf");
 
-  #val = raw_input()
+  if (verbose):
+      val = raw_input()
 
   for ip in range(fi,la+1):
       #c2.cd()
@@ -1549,24 +1550,23 @@ def fithr2(run,tdc,vthmin,vthmax):
       #hs.GetXaxis().SetRangeUser(vthmin-1,scfit.GetParameter(1)+60);
       #gPad.SetLogy();
       rped=scfit.GetParameter(1)
-      c1.cd()
-      c1.Draw()
+      if (verbose):
+          c1.cd()
+          c1.Draw()
       
 
-      hder.Draw()
-      c1.Update()
-      #val1 = raw_input()
+          hder.Draw()
+          c1.Update()
+          val1 = raw_input()
 
       print "heho ",rped,hder.GetMean(),scfit.GetParameter(2)
       rped=hder.GetMean()
-      
-      hs.Draw()
-      
-
-      c1.cd()
-      c1.Draw()
-      c1.Update()
-
+      if (verbose):
+          hs.Draw()
+          c1.cd()
+          c1.Draw()
+          c1.Update()
+          val = raw_input()
       fout.write("|%2d|%5.1f|%5.1f|%5.2f| \n" % (ip,rped,scfit.GetParameter(2),vmax));
       hmean.Fill(rped)
       hpmax.SetBinContent(ip+1,vmax)
@@ -1574,33 +1574,38 @@ def fithr2(run,tdc,vthmin,vthmax):
       hpmean.SetBinContent(ip+1,rped);
       hpnoise.SetBinContent(ip+1,scfit.GetParameter(2))
       #c1.SaveAs("Run%d_Strip%d.root" % (run,ip));
-      #val = raw_input()
+
 
       #hder.Draw()
       
       #c1.Update()
       #val = raw_input()
-  c1.cd()
+  c1.Divide(2,2)
+  c1.cd(1)
+
   hmean.Draw()
   hpmean.GetYaxis().SetRangeUser(vthmin,vthmax)
   hpmean.Draw()
   c1.Update()
-  c1.SaveAs(outd+"/Pedestal.pdf");
+  #c1.SaveAs(outd+"/Pedestal.pdf");
   #val = raw_input()
+  c1.cd(2)
   hnoise.Draw()
   c1.Update()
-  c1.SaveAs(outd+"/NoiseInt.pdf");
+  #c1.SaveAs(outd+"/NoiseInt.pdf");
   #val = raw_input()
+  c1.cd(3)
   hpnoise.Draw()
   c1.Update()
   #val = raw_input()
   c1.Update()
-  c1.SaveAs(outd+"/Noise.pdf");
+  #c1.SaveAs(outd+"/Noise.pdf");
+  c1.cd(4)
   hpmax.Draw()
   c1.Update()
   #val = raw_input()
   c1.Update()
-  c1.SaveAs(outd+"/Max.pdf");
+  c1.SaveAs(outd+"/Summary.pdf");
   c1.Close()
   fout.write("+--+-----+-----+-----+ \n");
   fout.close()
