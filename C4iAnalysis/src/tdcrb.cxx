@@ -42,11 +42,12 @@ using namespace sdhcal;
 tdcrb::tdcrb(std::string dire) : _directory(dire),_run(0),_started(false),_fdIn(-1),_totalSize(0),_event(0),_geo(NULL),_t0(2E50),_t(0),_tspill(0)
 			       ,_readoutTotalTime(0),_runType(0),_dacSet(0),_fdOut(-1),_bxId0(0),_nrmax(50000000),_nrfirst(0)
 {_rh=DCHistogramHandler::instance();
-
+  _buf=new unsigned char [30*1024*1024];
 }
 
-void  tdcrb::registerProcessor(std::string name)
+void  tdcrb::registerProcessor1(std::string name)
 {
+  std::cout<<"on rentre dans register"<<std::endl;
   std::stringstream s;
   s<<"lib"<<name<<".so";
   void* library = dlopen(s.str().c_str(), RTLD_NOW);
@@ -56,13 +57,17 @@ void  tdcrb::registerProcessor(std::string name)
     // Get the loadFilter function, for loading objects
   rbProcessor* (*create)();
   create = (rbProcessor* (*)())dlsym(library, "loadProcessor");
-  //LOG4CXX_INFO(_logZdaq," Error "<<dlerror()<<" file "<<s.str()<<" loads to processor address "<<std::hex<<create<<std::dec);
+
+  std::cout<<"on rentre dans register"<<std::flush<<std::endl;
+  std::cout<<" file "<<s.str()<<" loads to processor address "<<std::hex<<create<<std::dec<<std::endl;
   //printf("%s %x \n",dlerror(),(unsigned int) create);
   // printf("%s lods to %x \n",s.str().c_str(),(unsigned int) create); 
   //void (*destroy)(Filter*);
   // destroy = (void (*)(Filter*))dlsym(library, "deleteFilter");
     // Get a new filter object
   rbProcessor* a=(rbProcessor*) create();
+  std::cout<<"on rentre dans register"<<a<<std::flush<<std::endl;
+  a->info();
   _processors.push_back(a);
 }
 
@@ -116,10 +121,15 @@ void tdcrb::findDataSet(std::string dirp,uint32_t runask)
 }
 void tdcrb::geometry(std::string name)
 {
+  std::cout<<"parsing "<<name<<std::endl;
   _geo=new jsonGeo(name);
   //_analyzer->setGeometry(_geo);
   for (auto x:_processors)
-    x->loadParameters(_geo->root());
+    {
+      //std::cout<<"Loading processor geometry "<<name<<" "<<_geo->root()<<std::endl;
+      x->loadParameters(_geo->root());
+
+    }
 }
 
 void tdcrb::pull(std::string name,zdaq::buffer* buf,std::string sourcedir)
@@ -439,6 +449,8 @@ void tdcrb::read()
 
 		  _difId=(b.dataSourceId()>>8)&0xFF;
 		  _theEvent.setFrameCount(_difId,(len-26)/20);
+		  uint32_t trgbcid=bb[25]|bb[24]<<8|bb[23]<<16;
+		  _theEvent.setTrgBcid(_difId,trgbcid);
 		  uint8_t* fb=&bb[26];
 		  uint8_t* efb=_theEvent.frameBuffer();
 
@@ -446,6 +458,7 @@ void tdcrb::read()
 		    {
 		      uint32_t iptr=_theEvent.iPtr(_difId,ip);
 		      memcpy(&efb[iptr],&fb[ip*FSIZE],FSIZE);
+		      // if (_theEvent.hasTrigger(_difId))
 		      //printf("Frame %d %d %d \n",ip,_theEvent.header(iptr),_theEvent.bcid(iptr));
 		      /*
 		      uint8_t ga=fb[ip*FSIZE+1];
@@ -470,8 +483,8 @@ void tdcrb::read()
 			  efb[iptr+k]=gp;
 			}
 		      */
-		      #undef DEBUGEVENTS
-		      #ifdef DEBUGEVENTS
+		      #define DEBUGEVENTSNOT
+		      #ifdef DEBUGEVENTSPAD
 		      std::bitset<64> pads;
 		      pads.reset();
 		      for (int ipad=0;ipad<64;ipad++)
@@ -485,17 +498,24 @@ void tdcrb::read()
 		      //printf("timing %d %f %s \n",_theEvent.bcid(iptr),_theEvent.bcid(iptr)*2E-7,pads.to_string().c_str());
 		    }
 		  //getchar();
-	      #ifdef DEBUGEVENTSN
-		  for (int i=0;i<16;i++)
+	      #ifdef DEBUGEVENTS
+		  for (int i=0;i<26;i++)
 			printf("%.2x ",bb[i]);
 		  
 		  //printf("%d %d %d %d %x %d \n",ibuf[0],ibuf[1],lbuf[1],ibuf[4],ibuf[5],ibuf[6]);
-		  
-		  printf(" Size %d Frames %d \n",ntohs(sbuf[0]),(ntohs(sbuf[0])-16)/20);
-		  for (int i=15;i<ntohs(sbuf[0]);i++)
+		  //		  b0 01 01 11
+		  // 00 00 04 GTC
+		  //  00 00 00 03 bd f3 ABS
+		  //  00 c3 6a DIF
+		  //  00 00 00 LAST 00
+		  printf(" Size %d Frames %d %d \n",ntohs(sbuf[0]),(ntohs(sbuf[0])-16)/20,trgbcid);
+		  if (trgbcid==0) continue;
+		  else
+		    getchar();
+		  for (int i=26;i<ntohs(sbuf[0]);i++)
 		    {
 		      //int j=i+28;
-		      int j=i-15;
+		      int j=i-26;
 		      printf("%.2x ",bb[i]);
 		      if (j%20 ==19)
 			{
@@ -513,7 +533,7 @@ void tdcrb::read()
 			    }
 			  unsigned long long igray=(ga<<16)+(gb<<8)+gc;
 			  unsigned long long igrayp=(gap<<16)+(gbp<<8)+gcp;			  
-			  printf("\t %2.2x %.2x %.2x %llx %llx %f ",ga,gb,gc, DIFUnpacker::GrayToBin(igray), DIFUnpacker::GrayToBin(igrayp),DIFUnpacker::GrayToBin(igrayp)*200E-9);
+			  // a decommenter printf("\t %2.2x %.2x %.2x %llx %llx %f ",ga,gb,gc, DIFUnpacker::GrayToBin(igray), DIFUnpacker::GrayToBin(igrayp),DIFUnpacker::GrayToBin(igrayp)*200E-9);
 			  // printf("%lx %f \n", GrayToBin(igray),GrayToBin(igray)*2E-7);
 			  #ifdef POURRIRE
 			  for (int k=0;k<64;k++)
@@ -531,7 +551,7 @@ void tdcrb::read()
 			}
 		    }
 		  printf("\n");
-		  if (ntohs(sbuf[0])>16) getchar();
+		  //if (ntohs(sbuf[0])>16) getchar();
 		  #endif
 		}
      

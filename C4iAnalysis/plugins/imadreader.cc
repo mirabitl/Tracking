@@ -24,6 +24,7 @@ void imadreader::init(uint32_t run)
   _event=0;
   _started=true;
 }
+void imadreader::info(){std::cout<<"JE SUIS UN IMADREADER"<<std::endl;}
 void imadreader::loadParameters(Json::Value params)
 {
   /*

@@ -17,7 +17,7 @@ DHCAL_ROOT=os.path.abspath("../..")
 INCLUDES=['.','./include',"/usr/include","/usr/local/include","/usr/X11R6/include","/usr/include/jsoncpp"]
 
 #MYSQL and sqlite
-INCLUDES.append("/opt/zdaq/include")
+INCLUDES.append("/usr/local/zdaq/include")
 INCLUDES.append("/usr/local/lydaq/include")
 INCLUDES.append("/opt/lydaq/analysis/shmwriter/include")
 INCLUDES.append("/opt/lydaq/drivers/common/include")
@@ -47,7 +47,7 @@ LIBRARIES=ROOT_LIBS+['pthread','jsoncpp','zdaq','log4cxx','lydaq_shmwriter','lyd
 
 
 #Library path XDAQ,DHCAL and ROOT + Python
-LIBRARY_PATHS=ROOT_LIBPATH+["/usr/lib","/usr/local/lib","/usr/local/zdaq/lib","/usr/local/lydaq/lib","./lib"]
+LIBRARY_PATHS=ROOT_LIBPATH+["/usr/lib","/usr/local/lib","./lib","/usr/local/zdaq/lib","/usr/local/lydaq/lib"]
 LIBRARY_PATHS.append(commands.getoutput("python2 -c 'import distutils.sysconfig as conf; print conf.PREFIX'")+"/lib")
 
 #link flags
@@ -88,11 +88,13 @@ plugbase=env1.SharedLibrary("lib/binaryreader",source=["plugins/binaryreader.cc"
 
 plugimad=env1.SharedLibrary("lib/imadreader",source="plugins/imadreader.cc",LIBPATH=EXE_LIBPATH,LIBS=EXE_LIBS)
 
+plugtricot=env1.SharedLibrary("lib/tricotreader",source="plugins/tricotreader.cc",LIBPATH=EXE_LIBPATH,LIBS=EXE_LIBS)
 
 
 
 
-Default([lmrb,tdcr,rbd,plugbase,plugimad])
+
+Default([lmrb,tdcr,rbd,plugbase,plugimad,plugtricot])
 
 
 

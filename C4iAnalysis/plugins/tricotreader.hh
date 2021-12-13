@@ -53,9 +53,12 @@ class tricotreader : public rbProcessor
     virtual  void processRunHeader(std::vector<uint32_t> header);
     virtual void loadParameters(Json::Value params);
     void scurveAnalysis(rbEvent* e);
-    void fillTimeMap(rbEvent *e);
-    void buildPlaneHits(rbEvent *e, std::vector<uint32_t> &hits);
-
+    void fillTimeMap(rbEvent *e,bool noise=false);
+    void buildPlaneHits(rbEvent *e, std::vector<uint32_t> &hits,std::string sub);
+    void UV2XY(uint32_t u,uint32_t v,float* x,float* y);
+    void UW2XY(uint32_t u,uint32_t w,float* x,float* y);
+    void VW2XY(uint32_t v,uint32_t w,float* x,float* y);
+    void drawHits();
   private:
     uint32_t _run,_event,_totalSize,_gtc;
     int32_t _fdOut;
@@ -68,6 +71,15 @@ class tricotreader : public rbProcessor
     std::map<uint32_t,Json::Value> _plinfo;
     std::bitset<16> _hplanes;
     uint64_t _bsplanes;
+    std::bitset<192> ub;
+    std::bitset<192> vb;
+    std::bitset<192> wb;
+    std::bitset<192> ub2;
+    std::bitset<192> vb2;
+    std::bitset<192> wb2;
+    std::bitset<192> ub3;
+    std::bitset<192> vb3;
+    std::bitset<192> wb3;
 
   };
 

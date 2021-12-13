@@ -45,6 +45,7 @@ class binaryreader : public rbProcessor
   {
   public:
     binaryreader();
+    virtual void info();
     virtual void init(uint32_t run=0);
     virtual void end(uint32_t run=0);
     virtual  void processEvent(rbEvent* e);

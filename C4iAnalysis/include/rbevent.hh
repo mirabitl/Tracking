@@ -20,6 +20,11 @@ public:
   inline uint32_t event(){return _event;}
   inline uint32_t gtc(){return _gtc;}
   inline uint64_t abcid(){return _abcid;}
+  inline uint32_t difBcid(uint32_t d){return _difbcid[d];}
+  inline void setDifBcid(uint32_t d,uint32_t n){_difbcid[d]=n;}
+  inline uint32_t trgBcid(uint32_t d){return _trgbcid[d];}
+  inline void setTrgBcid(uint32_t d,uint32_t n){_trgbcid[d]=n;}
+  inline bool hasTrigger(uint32_t d){return _trgbcid[d]!=0;}
   inline uint32_t iPtr(uint32_t d,uint32_t f){ return (d*MAXFRAME+f)*FSIZE;}
   inline uint32_t header(uint32_t iptr){return _fBuf[iptr];}
   inline uint32_t bcid(uint32_t iptr){ return DIFUnpacker::getFrameBCID(&_fBuf[iptr]);}
@@ -32,6 +37,7 @@ public:
 private:
   uint32_t _run,_event,_gtc,_runType,_vthSet;
   uint64_t _abcid;
+  uint32_t _difbcid[MAXDIF],_trgbcid[MAXDIF];
   uint32_t _frameCount[MAXDIF];
   uint8_t _fBuf[MAXDIF*MAXFRAME*FSIZE];
 };
@@ -40,6 +46,7 @@ private:
 class rbProcessor
 {
 public:
+  virtual void info()=0;
   virtual void init(uint32_t run=0)=0;
   virtual void end(uint32_t run=0)=0;
   virtual  void processEvent(rbEvent* e)=0;

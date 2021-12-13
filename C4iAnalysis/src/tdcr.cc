@@ -52,8 +52,7 @@ sortbydatetime(const struct dirent **a, const struct dirent **b)
 }
 int main(int argc, char **argv )
 {
-  static tdcrb bs("/tmp");
-  DCHistogramHandler* rh=DCHistogramHandler::instance();
+  //static
   //  lmana::Analyzer* a= new lmana::TdcAnalyzer(rh);
   // bs.setAnalyzer(a);
   TApplication theApp("tapp", &argc, argv);
@@ -150,12 +149,16 @@ int main(int argc, char **argv )
 
 
 
+   tdcrb bs("/tmp");
+
+  //DCHistogramHandler* rh=DCHistogramHandler::instance();
 
 
   
   //bs.geometry("gifpp_geom.json");
   if (prn.compare("NONE")!=0)
-    bs.registerProcessor(prn);
+    {std::cout<<"Registering "<<prn<<std::endl;
+      bs.registerProcessor1(prn);}
   std::cout<<geom_file<<" " <<runask<<std::endl;
   bs.geometry(geom_file);
   bs.setNFirst(nfirst);
@@ -230,4 +233,5 @@ int main(int argc, char **argv )
   bs.Read();
   bs.setRun(runask);
   bs.end();
+
 }

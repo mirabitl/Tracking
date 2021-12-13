@@ -1441,7 +1441,7 @@ def fithr2(run,tdc,vthmin,vthmax):
   for i in range(64):
     ped.append(0)
   f82=TFile("/tmp/histo%d_0.root" % run);
-  f82.cd("/gric/B10SCURVE%d" % (tdc));
+  f82.cd("/gric/B01SCURVE%d" % (tdc));
   c1=TCanvas();
   #c2=TCanvas("c2","Test",1400,900);
   #c2.cd()
@@ -1473,7 +1473,7 @@ def fithr2(run,tdc,vthmin,vthmax):
       if (hs.GetEntries()==0):
         continue
       print(ip,fi,la," found")
-      hs.Scale(1./2700.);
+      hs.Scale(1./10.);
       nmax=0
       for i in range(1,hs.GetNbinsX()):
         if (hs.GetBinContent(i)==0):
@@ -1503,7 +1503,7 @@ def fithr2(run,tdc,vthmin,vthmax):
   #c1.SaveAs("Run%d_AllStrip%d.root" % (run,tdc,asic));
   c1.SaveAs(outd+"/AllStrip.pdf");
 
-  val = input()
+  val = raw_input()
 
   for ip in range(fi,la+1):
       #c2.cd()
@@ -1605,7 +1605,7 @@ def fithr2(run,tdc,vthmin,vthmax):
   c1.cd(4)
   hpmax.Draw()
   c1.Update()
-  val = input()
+  val = raw_input()
   c1.Update()
   c1.SaveAs(outd+"/Summary.pdf");
   c1.Close()

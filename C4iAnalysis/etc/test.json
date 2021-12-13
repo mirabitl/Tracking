@@ -8,8 +8,9 @@
     "general":
     {
 	"directory":"/opt/TdcAnalysis/Histos/InTime",
-	"noise":0,
+	"noise":1,
 	"display":0,
+	"maxhit":1,
 	"trigger":0,
 	"coinc":1,
 	"minplan":3,

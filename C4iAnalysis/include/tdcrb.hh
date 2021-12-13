@@ -24,7 +24,7 @@ class tdcrb
 {
 public:
   tdcrb(std::string dire="/tmp");
-  void registerProcessor(std::string name);
+  void registerProcessor1(std::string name);
   void Read();
   void end();
   void open(std::string name);
@@ -63,7 +63,7 @@ private:
   uint32_t _nevt,_ntrigger,_nfound,_nbside;
   int32_t _fdIn,_fdOut;
   bool _started;
-  unsigned char _buf[256*1024*1024];
+  unsigned char *_buf;//[256*1024*1024];
   uint32_t _idx;
   jsonGeo* _geo;
   double _readoutTime,_readoutTotalTime;

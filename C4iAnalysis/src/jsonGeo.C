@@ -14,6 +14,7 @@ std::string itoa(int k)
 }
 jsonGeo::jsonGeo(std::string config)
 {
+  std::cout<<"Parsing "<<config<<std::endl;
     std::ifstream ifs (config.c_str(), std::ifstream::in);
   
  // Let's parse it  

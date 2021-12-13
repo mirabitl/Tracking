@@ -59,7 +59,7 @@ typedef struct
 } event_t;
 
 event_t theEvent;
-
+void binaryreader::info(){std::cout<<"JE SUIS UN BINARYREADER"<<std::endl;}
 binaryreader::binaryreader() : _run(0), _started(false), _fdOut(-1), _totalSize(0), _event(0),tEvents_(NULL) {}
 void binaryreader::init(uint32_t run)
 {

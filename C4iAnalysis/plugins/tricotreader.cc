@@ -19,6 +19,23 @@
 
 #include <stdint.h>
 #include <math.h>
+#include <TCanvas.h>
+#include <TLine.h>
+#include <TGraphErrors.h>
+#include <TFitResult.h>
+#include <TFitter.h>
+#include <TF1.h>
+#include <TPluginManager.h>
+#include <stdint.h>
+#include <math.h>
+#include "TPolyLine3D.h"
+#include "TVirtualPad.h"
+#include "recoTrack.hh"
+#include "HoughLocal.hh"
+#include "TPrincipal.h"
+
+static TCanvas *TCPlot = NULL;
+static TCanvas *TCHits = NULL;
 
 //using namespace zdaq;
 
@@ -94,17 +111,26 @@ void tricotreader::processEvent(rbEvent *e)
   _gtc=e->gtc();
   
   if (e->seuil()!=0)
-    this->scurveAnalysis(e);
-
+    {
+      this->scurveAnalysis(e);
+      return;}
   this->fillTimeMap(e);
-
+  if (_jparams["general"]["noise"].asUInt() == 1)
+    this->fillTimeMap(e,true);
+  //getchar();
   return;
 }
-void tricotreader::fillTimeMap(rbEvent *e)
+void tricotreader::fillTimeMap(rbEvent *e,bool noise)
 {
   _timeMap.clear();
   std::stringstream sraw;
   sraw << "/gric/";
+  float tcut=13.;
+  if (noise)
+    {
+    tcut=15E9;
+    sraw<<"allTimes/";
+    }
   TH1 *hfc = _rh->GetTH1(sraw.str() + "FrameCount");
   TH1 *hftm = _rh->GetTH1(sraw.str() + "MaxTime");
   TH1 *hfound = _rh->GetTH1(sraw.str() + "NFrameInTime");
@@ -142,7 +168,7 @@ void tricotreader::fillTimeMap(rbEvent *e)
 #define RAWHIST
 #ifdef RAWHIST
   std::stringstream sraw1;
-  sraw1 << "/gric/ASIC" << std::hex << id << std::dec << "/";
+  sraw1 << sraw.str()<<"ASIC" << std::hex << id << std::dec << "/";
   TH1 *hp1s = _rh->GetTH1(sraw1.str() + "Pad1Selected");
   TH1 *hp1 = _rh->GetTH1(sraw1.str() + "Pad1");
   TH1 *hft = _rh->GetTH1(sraw1.str() + "FrameTime");
@@ -172,7 +198,7 @@ void tricotreader::fillTimeMap(rbEvent *e)
 	    if (e->trgBcid(id)!=0)
 	      {
 		htt->Fill(e->trgBcid(id)-e->bcid(idx));
-		selected=(e->trgBcid(id)-e->bcid(idx))<15;
+		selected=(e->trgBcid(id)-e->bcid(idx))<tcut;
 	      }
 	    // Remove frame at beginning of windows
 	    if (e->bcid(idx) < bcidmin)
@@ -205,7 +231,11 @@ void tricotreader::fillTimeMap(rbEvent *e)
 	    std::map<uint32_t, std::vector<uint32_t>>::iterator itmp = _timeMap.find(e->bcid(idx) + 1);
 	    std::map<uint32_t, std::vector<uint32_t>>::iterator itmmm = _timeMap.find(e->bcid(idx) - 2);
 	    std::map<uint32_t, std::vector<uint32_t>>::iterator itmpp = _timeMap.find(e->bcid(idx) + 2);
+	    auto it3m=_timeMap.find(e->bcid(idx) - 3);
+	    auto it3p=_timeMap.find(e->bcid(idx) +3);
 	    found = (itm != _timeMap.end()) || (itmp != _timeMap.end()) || (itmm != _timeMap.end()) || (itmpp != _timeMap.end()) || (itmmm != _timeMap.end());
+	    //found=found || (it3m!=_timeMap.end());
+	    //found=found || (it3p!=_timeMap.end());
 	    //found =(itm!=_timeMap.end())||(itmp!=_timeMap.end())||(itmm!=_timeMap.end());
 	    if (!found)
 	      {
@@ -227,6 +257,11 @@ void tricotreader::fillTimeMap(rbEvent *e)
 		  itmmm->second.push_back(idx);
 		if (itmpp != _timeMap.end())
 		  itmpp->second.push_back(idx);
+
+		if (it3m != _timeMap.end())
+		  it3m->second.push_back(idx);
+		if (it3p != _timeMap.end())
+		  it3p->second.push_back(idx);
 		*/
 	      }
 
@@ -243,7 +278,7 @@ void tricotreader::fillTimeMap(rbEvent *e)
 	{
 	      // ID
 	      uint32_t id = y / MAXFRAME / FSIZE;
-	      if ((e->trgBcid(id)-e->bcid(y))<15)
+	      if ((e->trgBcid(id)-e->bcid(y))<tcut)
 		{
 		  uint32_t dir=((id>>4)&0xF)-1;
 		  dirs.set(dir);
@@ -252,9 +287,9 @@ void tricotreader::fillTimeMap(rbEvent *e)
 	}
 
       
-      if (nh!=0)
+      if (nh!=0 && !noise)
 	{
-	std::cout<<"Map size "<<x.first<<" nh "<<nh<<" dirs "<<dirs<<std::endl;
+	  std::cout<<"Map size "<<x.first<<" nh "<<nh<<" dirs "<<dirs<<std::endl;
 	}
       if (dirs.count()>1)
 	{
@@ -266,7 +301,7 @@ void tricotreader::fillTimeMap(rbEvent *e)
 	      uint32_t dif=id&0xF;
 	      std::stringstream sraw1;
 
-	      sraw1 << "/gric/DIR"<<dir<< std::dec << "/";
+	      sraw1 << sraw.str()<<"DIR"<<dir<< std::dec << "/";
 	      TH1 *hp1r = _rh->GetTH1(sraw1.str() + "Pad1Reco");
 	      if (hp1r==NULL)
 		{
@@ -280,7 +315,7 @@ void tricotreader::fillTimeMap(rbEvent *e)
 
 		}
 	    }
-	  this->buildPlaneHits(e, x.second);
+	  this->buildPlaneHits(e, x.second,sraw.str());
 	  //
 	  it++;
 	}
@@ -295,31 +330,170 @@ void tricotreader::fillTimeMap(rbEvent *e)
   //if (_timeMap.size()>1)
   //  getchar();
 }
-void tricotreader::buildPlaneHits(rbEvent *e, std::vector<uint32_t> &hits)
+void tricotreader::UV2XY(uint32_t u,uint32_t v,float* x,float* y)
+{
+  float a_v = -1. * T30, b_v = 48. + v * TSTEP;
+  (*x) = u * XSTEP;
+  (*y) = a_v * (*x) + b_v;
+}
+void tricotreader::UW2XY(uint32_t u,uint32_t w,float* x,float* y)
+{
+  float a_w = 1. * T30, b_w = 16. +w * TSTEP;
+  (*x) = u * XSTEP;
+  (*y) = a_w * (*x) + b_w;
+}
+void tricotreader::VW2XY(uint32_t v,uint32_t w,float* x,float* y)
+{
+  float a_v = -1. * T30, b_v = 48. + v * TSTEP;
+  float a_w = 1. * T30, b_w = 16. +w * TSTEP;
+  (*x) = (b_v - b_w) / (a_w - a_v);
+  (*y) = a_w * (*x) + b_w;
+}
+
+
+
+void tricotreader::drawHits()
+{
+  TH2 *huv = _rh->GetTH2("UV");
+  TH2 *huw = _rh->GetTH2("UW");
+  TH2 *hvw = _rh->GetTH2("VW");
+  TH1 *hu = _rh->GetTH1("U");
+  TH1 *hv = _rh->GetTH1("V");
+  TH1 *hw = _rh->GetTH1("W");
+  TH1 *hu2= _rh->GetTH1("U2");
+  TH1 *hv2= _rh->GetTH1("V2");
+  TH1 *hw2= _rh->GetTH1("W2");
+  TH1 *hu3= _rh->GetTH1("U3");
+  TH1 *hv3= _rh->GetTH1("V3");
+  TH1 *hw3= _rh->GetTH1("W3");
+  if (huv == NULL)
+    {
+      huv = _rh->BookTH2("UV", 100., 0., 100., 200., 0., 200.);
+      huw = _rh->BookTH2("UW", 100., 0., 100., 200., 0., 200.);
+      hvw = _rh->BookTH2("VW", 100., 0., 100., 200., 0., 200.);
+      hu = _rh->BookTH1("U", 200., 0., 200);
+      hv = _rh->BookTH1("V", 200., 0., 200);
+      hw = _rh->BookTH1("W", 200., 0., 200);
+      hu2 = _rh->BookTH1("U2", 200., 0., 200);
+      hv2 = _rh->BookTH1("V2", 200., 0., 200);
+      hw2 = _rh->BookTH1("W2", 200., 0., 200);
+      hu3 = _rh->BookTH1("U3", 200., 0., 200);
+      hv3 = _rh->BookTH1("V3", 200., 0., 200);
+      hw3 = _rh->BookTH1("W3", 200., 0., 200);
+
+    }
+  huv->Reset();
+  huw->Reset();
+  hvw->Reset();
+  hu->Reset();
+  hw->Reset();
+  hv->Reset();
+  hu2->Reset();
+  hw2->Reset();
+  hv2->Reset();
+  hu3->Reset();
+  hw3->Reset();
+  hv3->Reset();
+
+  for (uint32_t u=0;u<192;u++)
+    {
+    if (ub[u]) hu->Fill(u);
+    if (vb[u]) hv->Fill(u) ;
+    if (wb[u]) hw->Fill(u);
+    if (ub2[u]) hu2->Fill(u);
+    if (vb2[u]) hv2->Fill(u) ;
+    if (wb2[u]) hw2->Fill(u);
+    if (ub3[u]) hu3->Fill(u);
+    if (vb3[u]) hv3->Fill(u) ;
+    if (wb3[u]) hw3->Fill(u);
+    }
+  float x,y;
+  for (uint32_t u=0;u<192;u++)
+    if (ub[u])
+      for (uint32_t v=0;v<192;v++)
+	if (vb[v])
+	  {
+	    UV2XY(u,v,&x,&y);
+	    huv->Fill(x,y);
+	  }
+ for (uint32_t u=0;u<192;u++)
+    if (ub[u])
+      for (uint32_t w=0;w<192;w++)
+	if (wb[w])
+	  {
+	    UW2XY(u,w,&x,&y);
+	    huw->Fill(x,y);	  }
+ for (uint32_t v=0;v<192;v++)
+    if (vb[v])
+      for (uint32_t w=0;w<192;w++)
+	if (wb[w])
+	  {
+	    VW2XY(v,w,&x,&y);
+	    hvw->Fill(x,y);	  }
+  if (TCHits == NULL)
+    {
+      TCHits = new TCanvas("TCHits", "tChits1", 1200, 600);
+      TCHits->Modified();
+      TCHits->Draw();
+      TCHits->Divide(2, 3);
+    }
+  TCHits->cd(1);
+  huv->SetMarkerStyle(25);
+  huv->SetMarkerColor(kRed);
+  huv->Draw("P");
+  TCHits->cd(2);
+  hu->Draw();
+  hu2->SetLineColor(kGreen);
+  hu2->Draw("SAME");
+  hu3->SetLineColor(kRed);
+  hu3->Draw("SAME");
+  TCHits->cd(3);
+  huw->SetMarkerStyle(26);
+  huw->SetMarkerColor(kGreen);
+  huw->Draw("P");
+  TCHits->cd(4);
+  hv->Draw();
+  hv2->SetLineColor(kGreen);
+  hv2->Draw("SAME");
+  hv3->SetLineColor(kRed);
+  hv3->Draw("SAME");
+  TCHits->cd(5);
+  hvw->SetMarkerStyle(27);
+  hvw->SetMarkerColor(kBlue);
+  hvw->Draw("P");
+  TCHits->cd(6);
+  hw->Draw();
+  hw2->SetLineColor(kGreen);
+  hw2->Draw("SAME");
+  hw3->SetLineColor(kRed);
+  hw3->Draw("SAME");
+
+  TCHits->Modified();
+  TCHits->Draw();
+  TCHits->Update();
+  ::usleep(100);
+  TCHits->Update();
+  getchar();
+
+}
+void tricotreader::buildPlaneHits(rbEvent *e, std::vector<uint32_t> &hits,std::string sub)
 
 {
 
+  bool display = _jparams["general"]["display"].asUInt() == 1;
+  bool maxhit = _jparams["general"]["maxhit"].asUInt() == 1;
 
   std::stringstream splane;
 
-  splane << "/gric/PLANE/";
-  std::bitset<384> ub;
+  splane << sub<<"PLANE/";
   ub.reset();
-  std::bitset<384> vb;
   vb.reset();
-  std::bitset<384> wb;
   wb.reset();
-  std::bitset<384> ub2;
   ub2.reset();
-  std::bitset<384> vb2;
   vb2.reset();
-  std::bitset<384> wb2;
   wb2.reset();
-  std::bitset<384> ub3;
   ub3.reset();
-  std::bitset<384> vb3;
   vb3.reset();
-  std::bitset<384> wb3;
   wb3.reset();
 
   //  std::cout<<"Hit Plane before "<<plane<<" BS "<<_hplanes<<std::endl;
@@ -340,7 +514,7 @@ void tricotreader::buildPlaneHits(rbEvent *e, std::vector<uint32_t> &hits)
       //  	sshift = (2-idif)*64;
       for (int k = 0; k < 64; k++)
 	{
-	  if (e->pad0(y, k) || e->pad1(y, k))
+	  if (e->pad1(y, k) && !e->pad0(y, k))
 	    {
 	      if (udir)
 		ub.set(k + sshift);
@@ -382,32 +556,56 @@ void tricotreader::buildPlaneHits(rbEvent *e, std::vector<uint32_t> &hits)
   std::vector<float> sx_v;
   std::vector<float> sx_w;
 
-#define MAXHITONLY
-#ifdef MAXHITONLY
-  if (ub2.count() != 0)
-    ub = ub2;
-  if (vb2.count() != 0)
-    vb = vb2;
-  if (wb2.count() != 0)
-    wb = wb2;
+  if (maxhit)
+    {
+      if (ub3.count() != 0)
+	ub = ub3;
+      else
+	if (ub2.count()!=0)
+	  ub=ub2;
+      if (vb3.count() != 0)
+	vb = vb3;
+      else
+	if (vb2.count()!=0)
+	  vb=vb2;
+      if (wb3.count() != 0)
+	wb = wb3;
+      else
+	if (wb2.count()!=0)
+	  wb=wb2;
+  /*
+      if (ub2.count()!=0 || ub3.count()!=0)
+	{
+	  ub.reset();
+	  for (uint32_t i=0;i<192;i++)
+	    if (ub2[i]||ub3[i]) ub.set(i);
+	}
+      if (vb2.count()!=0 || vb3.count()!=0)
+	{
+	  vb.reset();
+	  for (uint32_t i=0;i<192;i++)
+	    if (vb2[i]||vb3[i]) vb.set(i);
+	}
+      if (wb2.count()!=0 || wb3.count()!=0)
+	{
+	  wb.reset();
+	  for (uint32_t i=0;i<192;i++)
+	    if (wb2[i]||wb3[i]) wb.set(i);
+	}
+  */
+    }
 
-  if (ub3.count() != 0)
-    ub = ub3;
-  if (vb3.count() != 0)
-    vb = vb3;
-  if (wb3.count() != 0)
-    wb = wb3;
-  /*  */
-#endif
+  //ub=ub2;vb=vb2;wb=wb2;
+  if (display) this->drawHits();
   if (ub.count() > 0)
     {
       int f = 1000, l = -1;
       std::vector<int> first, last;
-      for (int i = 0; i < 384; i++)
+      for (int i = 0; i < 192; i++)
 	{
-	  if (ub[i] && f > 384)
+	  if (ub[i] && f > 192)
 	    f = i;
-	  if (ub[i] == 0 && f < 384 && l < 0)
+	  if (ub[i] == 0 && f < 192 && l < 0)
 	    {
 	      l = i - 1;
 	      first.push_back(f);
@@ -416,10 +614,10 @@ void tricotreader::buildPlaneHits(rbEvent *e, std::vector<uint32_t> &hits)
 	      l = -1;
 	    }
 	}
-      if (f < 384 && l < 0)
+      if (f < 192 && l < 0)
 	{
 	  first.push_back(f);
-	  last.push_back(255);
+	  last.push_back(191);
 	}
 
       int idx = -1;
@@ -433,30 +631,39 @@ void tricotreader::buildPlaneHits(rbEvent *e, std::vector<uint32_t> &hits)
 	      s_u = (last[i] - first[i] + 1);
 	      idx = i;
 	    }
+
 	}
+      // for (int i=0;i<vx_u.size();i++)
+      // 	{
+      // 	  printf("UC %d %f %f \n",i,vx_u[i],sx_u[i]);
+      // 	}
+
       //std::cout<<"X IDX "<<idx<<std::endl;
       x_u = (first[idx] + last[idx]) / 2.;
 
       //std::cout<<" U :"<<f<<":"<<l<<":"<<x_u<<"=> "<<ub<<std::endl;
       //std::cout<<" U2 :"<<f<<":"<<l<<":"<<x_u<<"=> "<<ub2<<std::endl;
       TH1 *hnu = _rh->GetTH1(splane.str() + "UCount");
+      TH1 *hnbu = _rh->GetTH1(splane.str() + "NU");
 
       if (hnu == NULL)
 	{
 	  hnu = _rh->BookTH1(splane.str() + "UCount", 64, 0., 64.);
+	  hnbu = _rh->BookTH1(splane.str() + "NU", 64, 0., 64.);
 	}
       hnu->Fill(s_u);
+      hnbu->Fill(first.size());
     }
   if (vb.count() > 0)
     {
       int f = 1000, l = -1;
       std::vector<int> first, last;
-      for (int i = 0; i < 384; i++)
+      for (int i = 0; i < 192; i++)
 	{
-	  if (vb[i] && f > 384)
+	  if (vb[i] && f > 192)
 	    f = i;
 
-	  if (vb[i] == 0 && f < 384 && l < 0)
+	  if (vb[i] == 0 && f < 192 && l < 0)
 	    {
 	      l = i - 1;
 	      first.push_back(f);
@@ -465,7 +672,7 @@ void tricotreader::buildPlaneHits(rbEvent *e, std::vector<uint32_t> &hits)
 	      l = -1;
 	    }
 	}
-      if (f < 384 && l < 0)
+      if (f < 192 && l < 0)
 	{
 	  first.push_back(f);
 	  last.push_back(255);
@@ -490,23 +697,27 @@ void tricotreader::buildPlaneHits(rbEvent *e, std::vector<uint32_t> &hits)
       //std::cout<<" V :"<<f<<":"<<l<<":"<<x_v<<"=> "<<vb<<std::endl;
       //std::cout<<" V2 :"<<f<<":"<<l<<":"<<x_v<<"=> "<<vb2<<std::endl;
       TH1 *hnv = _rh->GetTH1(splane.str() + "VCount");
+      TH1 *hnbv = _rh->GetTH1(splane.str() + "NV");
 
       if (hnv == NULL)
 	{
 	  hnv = _rh->BookTH1(splane.str() + "VCount", 64, 0., 64.);
+	  hnbv = _rh->BookTH1(splane.str() + "NV", 64, 0., 64.);
 	}
       hnv->Fill(s_v);
+      hnbv->Fill(first.size());
+
     }
   if (wb.count() > 0)
     {
       int f = 1000, l = -1;
       std::vector<int> first, last;
-      for (int i = 0; i < 384; i++)
+      for (int i = 0; i < 192; i++)
 	{
-	  if (wb[i] && f > 384)
+	  if (wb[i] && f > 192)
 	    f = i;
 
-	  if (wb[i] == 0 && f < 384 && l < 0)
+	  if (wb[i] == 0 && f < 192 && l < 0)
 	    {
 	      l = i - 1;
 	      first.push_back(f);
@@ -515,7 +726,7 @@ void tricotreader::buildPlaneHits(rbEvent *e, std::vector<uint32_t> &hits)
 	      l = -1;
 	    }
 	}
-      if (f < 384 && l < 0)
+      if (f < 192 && l < 0)
 	{
 	  first.push_back(f);
 	  last.push_back(255);
@@ -538,12 +749,16 @@ void tricotreader::buildPlaneHits(rbEvent *e, std::vector<uint32_t> &hits)
       x_w = (first[idx] + last[idx]) / 2.;
       //std::cout<<" W :"<<f<<":"<<l<<":"<<x_w<<"=> "<<wb<<std::endl;
       TH1 *hnw = _rh->GetTH1(splane.str() + "WCount");
+      TH1 *hnbw = _rh->GetTH1(splane.str() + "NW");
 
       if (hnw == NULL)
 	{
 	  hnw = _rh->BookTH1(splane.str() + "WCount", 64, 0., 64.);
+	  hnbw = _rh->BookTH1(splane.str() + "NW", 64, 0., 64.);
 	}
       hnw->Fill(s_w);
+      hnbw->Fill(first.size());
+
     }
   if (ub.count() > 0 || vb.count() > 0 || wb.count() > 0)
     {
@@ -555,11 +770,13 @@ void tricotreader::buildPlaneHits(rbEvent *e, std::vector<uint32_t> &hits)
   float Y_uv, Y_uw, Y_vw, Y_uvw;
   bool buv = false, buw = false, bvw = false, buvw = false;
   TH2 *huvwo = _rh->GetTH2(splane.str() + "UVWOr");
+  TH1 *hsg = _rh->GetTH1(splane.str() + "UVWSize");
 
   if (huvwo == NULL)
     {
 
-      huvwo = _rh->BookTH2(splane.str() + "UVWOr", 400, -200., 200., 400,0.,200.);
+      huvwo = _rh->BookTH2(splane.str() + "UVWOr", 150,0.,75., 400,0.,200.);
+      hsg = _rh->BookTH1(splane.str() + "UVWSize", 200,0.,100.);
     }
 
   if (x_u >= 0 && x_v >= 0)
@@ -574,8 +791,8 @@ void tricotreader::buildPlaneHits(rbEvent *e, std::vector<uint32_t> &hits)
 
       if (huv == NULL)
 	{
-	  huv = _rh->BookTH2(splane.str() + "UV",  400, -200., 200., 400,0.,200.);
-	  huvw = _rh->BookTH2(splane.str() + "UVW", 400, -200., 200., 400,0.,200.);
+	  huv = _rh->BookTH2(splane.str() + "UV",  150,0.,75., 400,0.,200.);
+	  huvw = _rh->BookTH2(splane.str() + "UVW", 150,0.,75., 400,0.,200.);
 	}
       huv->Fill(X, Y);
       //	  hst->Fill(11.);
@@ -617,7 +834,7 @@ void tricotreader::buildPlaneHits(rbEvent *e, std::vector<uint32_t> &hits)
 
       if (huw == NULL)
 	{
-	  huw = _rh->BookTH2(splane.str() + "UW", 400, -200., 200., 400,0.,200.);
+	  huw = _rh->BookTH2(splane.str() + "UW", 150,0.,75., 400,0.,200.);
 	}
       huw->Fill(X, Y);
 
@@ -635,7 +852,7 @@ void tricotreader::buildPlaneHits(rbEvent *e, std::vector<uint32_t> &hits)
 
       if (hvw == NULL)
 	{
-	  hvw = _rh->BookTH2(splane.str() + "VW",  400, -200., 200., 400,0.,200.);
+	  hvw = _rh->BookTH2(splane.str() + "VW",  150,0.,75., 400,0.,200.);
 	}
       hvw->Fill(X, Y);
 
@@ -652,39 +869,17 @@ void tricotreader::buildPlaneHits(rbEvent *e, std::vector<uint32_t> &hits)
 	  for (auto xw : vx_w)
 	    {
 
-	      float a_v = -1. * T30, b_v = (384 - xv) * TSTEP;
-	      float Xuv = (xu - 64) * XSTEP;
-	      float Yuv = a_v * Xuv + b_v;
-	      float a_w = 1. * T30, b_w = xw * TSTEP;
-	      float Xuw = (x_u - 64) * XSTEP;
-	      float Yuw = a_w * Xuw + b_w;
-	      a_w = T30;
-	      a_v = -1. * T30, b_w = xw * TSTEP;
-	      b_v = (384 - xv) * TSTEP;
-	      float Xvw = (b_v - b_w) / (a_w - a_v);
-	      float Yvw = a_w * Xvw + b_w;
-	      float Xg = (Xuv + Xuw + Xvw) / 3., Yg = (Yuv + Yuw + Yvw) / 3.;
 
-	      double a = sqrt((Xuv - Xuw) * (Xuv - Xuw) + (Yuv - Yuw) * (Yuv - Yuw));
-	      double b = sqrt((Xuv - Xvw) * (Xuv - Xvw) + (Yuv - Yvw) * (Yuv - Yvw));
-	      double c = sqrt((Xvw - Xuw) * (Xvw - Xuw) + (Yvw - Yuw) * (Yvw - Yuw));
+	      double a = sqrt((X_uv - X_uw) * (X_uv - X_uw) + (Y_uv - Y_uw) * (Y_uv - Y_uw));
+	      double b = sqrt((X_uv - X_vw) * (X_uv - X_vw) + (Y_uv - Y_vw) * (Y_uv - Y_vw));
+	      double c = sqrt((X_vw - X_uw) * (X_vw - X_uw) + (Y_vw - Y_uw) * (Y_vw - Y_uw));
 	      double p = (a + b + c) / 2.;
 	      double Sg = sqrt(p * (p - a) * (p - b) * (p - c));
-	      if (Sg > 15)
-		continue;
+	      hsg->Fill(Sg);
 	    }
     }
   else if (buv)
     {
-      for (auto xu : vx_u)
-	for (auto xv : vx_v)
-	  {
-
-	    float a_v = -1. * T30, b_v = (384 - xv) * TSTEP;
-	    float Xuv = (xu - 64) * XSTEP;
-	    float Yuv = a_v * Xuv + b_v;
-	    //recoPoint pg(Xuv,Yuv,z[plane]);
-	  }
 
       X_g = X_uv;
       Y_g = Y_uv;
@@ -694,41 +889,19 @@ void tricotreader::buildPlaneHits(rbEvent *e, std::vector<uint32_t> &hits)
 
       X_g = X_uw;
       Y_g = Y_uw;
-      for (auto xu : vx_u)
-	for (auto xw : vx_w)
-	  {
-
-	    float a_w = 1. * T30, b_w = xw * TSTEP;
-	    float Xuw = (x_u - 64) * XSTEP;
-	    float Yuw = a_w * Xuw + b_w;
-
-	    //getchar();
-	  }
     }
   else if (bvw)
     {
 
-      for (auto xv : vx_v)
-	for (auto xw : vx_w)
-	  {
-
-	    float a_w = T30, a_v = -1. * T30, b_w = xw * TSTEP, b_v = (384 - xv) * TSTEP;
-	    float Xvw = (b_v - b_w) / (a_w - a_v);
-	    float Yvw = a_w * Xvw + b_w;
-
-	    //getchar();
-	  }
+      X_g = X_vw;
+      Y_g = Y_vw;
     }
 
   if (buv || buw || bvw)
     {
       huvwo->Fill(X_g, Y_g);
-      //hzx->Fill(z[plane],X_g);
-      //hzy->Fill(z[plane],Y_g);
-      //ROOT::Math::XYZPoint p(X_g,Y_g,z[plane]);
-      // Test      _vPoints.push_back(p);
     }
-  //std::cout<<"Hit Plane after "<<plane<<" BS "<<_hplanes<<std::endl;
+
 }
 
 void tricotreader::scurveAnalysis(rbEvent *e)

@@ -15,6 +15,7 @@ class imadreader : public rbProcessor
   {
   public:
     imadreader();
+    virtual void info();
     virtual void init(uint32_t run=0);
     virtual void end(uint32_t run=0);
     virtual  void processEvent(rbEvent* e);
